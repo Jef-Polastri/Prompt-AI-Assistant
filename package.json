@@ -23,7 +23,10 @@
     "next": "^15.1.0",
     "pg": "^8.23.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "oracledb": "^6.x.x",
+    "mssql": "^10.x.x",
+    "mysql2": "^3.x.x",
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
