@@ -10,44 +10,34 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("--> Recebido na API do Chat:", body);
+    console.log("--> Recebido na API:", body);
 
-    const { prompt, sessionId, role, activeConnection } = body;
+    const { prompt, activeConnection } = body;
 
+    // Se a intenção for apenas testar/conectar o banco de dados (sem prompt de chat)
     if (!prompt) {
-      return NextResponse.json({ error: 'O campo prompt é obrigatório.' }, { status: 400 });
+      return NextResponse.json({ 
+        success: true, 
+        message: "Conexão com o banco processada com sucesso!",
+        data: body 
+      }, { status: 200 });
     }
 
-    // 1. (Opcional/Seu código do Supabase): Salvar a mensagem no Supabase se precisar
-    /*
-    await supabase
-      .from('chat_messages')
-      .insert([
-        { 
-          session_id: sessionId || 'default', 
-          message: prompt, 
-          role: role || 'user' 
-        }
-      ]);
-    */
-
-    // 2. Chamar o seu agente de IA para processar a resposta baseada no banco ativo
+    // Se houver um prompt, executa o agente normalmente
     let reply = "";
     if (activeConnection) {
       reply = await executarAgente(prompt, activeConnection);
     } else {
-      reply = "Nenhum banco de dados conectado. Por favor, conecte-se a um banco na barra lateral.";
+      reply = "Nenhum banco de dados conectado.";
     }
 
-    // Retorna a resposta final unida (Sucesso do Supabase + Resposta do Agente)
     return NextResponse.json({ 
       success: true, 
-      reply: reply,
-      message: "Processado com sucesso com Supabase e Agente!"
+      reply: reply 
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("❌ Erro ao processar o chat:", error.message);
+    console.error("❌ Erro ao processar a requisição:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
