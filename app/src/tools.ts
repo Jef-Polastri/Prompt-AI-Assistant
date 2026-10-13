@@ -1,9 +1,9 @@
 import { Pool } from 'pg';
-import * as dotenv from 'dotenv';
+//import * as dotenv from 'dotenv';
 
 
 
-dotenv.config();
+//dotenv.config();
 
 // Configura a conexão com o banco de dados do cliente (PostgreSQL)
 const db = new Pool({
