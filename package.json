@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.x.x",
-    "openai": "^4.x.x"
+    "openai": "^4.x.x",
     "@google/genai": "^2.24.0",
     "@next/swc-darwin-x64": "15.1.0",
     "lightningcss": "^1.33.0",
