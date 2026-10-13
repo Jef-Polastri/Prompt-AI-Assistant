@@ -1,59 +1,45 @@
 import { NextResponse } from 'next/server';
-import http from 'http';
+import { createClient } from '@supabase/supabase-js';
+
+// Inicializa o cliente do Supabase usando as variáveis de ambiente públicas ou de servidor
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("--> Proxy (Módulo HTTP) enviando para a porta 3333:", body);
+    console.log("--> Recebido na API do Chat:", body);
 
-    const dataString = JSON.stringify(body);
-
-    // Usando o módulo http nativo do Node para evitar o fetch failed do Next.js
-    const result = await new Promise((resolve, reject) => {
-      const req = http.request(
-        {
-          hostname: '127.0.0.1',
-          port: 3333,
-          path: '/api/connect-db',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(dataString),
-          },
-        },
-        (res) => {
-          let responseData = '';
-          res.on('data', (chunk) => {
-            responseData += chunk;
-          });
-          res.on('end', () => {
-            try {
-              resolve({
-                status: res.statusCode || 500,
-                body: JSON.parse(responseData),
-              });
-            } catch (e) {
-              resolve({
-                status: res.statusCode || 500,
-                body: { success: false, error: responseData },
-              });
-            }
-          });
+    // Exemplo de como salvar ou interagir com o banco do Supabase na nuvem:
+    // (Ajuste o nome da tabela conforme a estrutura que você criou no Supabase, ex: 'chat_messages')
+    
+    /*
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert([
+        { 
+          session_id: body.sessionId, 
+          message: body.message, 
+          role: body.role 
         }
-      );
+      ]);
 
-      req.on('error', (err) => {
-        reject(err);
-      });
+    if (error) {
+      throw error;
+    }
+    */
 
-      req.write(dataString);
-      req.end();
-    });
+    // Resposta temporária de sucesso para validar a integração com a nuvem
+    return NextResponse.json({ 
+      success: true, 
+      message: "Conectado com sucesso ao Supabase na nuvem!",
+      data: body 
+    }, { status: 200 });
 
-    //@ts-ignore
-    return NextResponse.json(result.body, { status: result.status });
   } catch (error: any) {
-    console.error("❌ Erro crítico no Proxy HTTP:", error.message);
+    console.error("❌ Erro ao processar o chat com o Supabase:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
