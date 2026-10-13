@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -137,7 +138,8 @@ export default function ChatPage() {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
-
+  
+ const [activeConnection, setActiveConnection] = useState<any>(null);
   // Função para testar/salvar a conexão com o banco
   const handleConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +156,7 @@ export default function ChatPage() {
 
       if (response.ok) {
         setIsConnected(true);
+        setActiveConnection(currentConnectionData); // 👈 SALVA A CONEXÃO AQUI!
         setMessages((prev) => [
           ...prev,
           { role: 'assistant', content: `✅ Conexão estabelecida com sucesso ao banco **${dbType.toUpperCase()}** (${dbConfig.database})! Já pode fazer suas perguntas.` }
