@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 
-
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -46,6 +45,7 @@ export default function ChatPage() {
   });
   const [isConnected, setIsConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<any>(null);
 
   // Buscar dados do usuário logado ao carregar a página
   useEffect(() => {
@@ -138,25 +138,26 @@ export default function ChatPage() {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
-  
- const [activeConnection, setActiveConnection] = useState<any>(null);
+
   // Função para testar/salvar a conexão com o banco
   const handleConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
     setConnecting(true);
 
+    const currentConnectionData = { type: dbType, ...dbConfig };
+
     try {
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: dbType, ...dbConfig })
+        body: JSON.stringify(currentConnectionData)
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setIsConnected(true);
-        setActiveConnection(currentConnectionData); // 👈 SALVA A CONEXÃO AQUI!
+        setActiveConnection(currentConnectionData);
         setMessages((prev) => [
           ...prev,
           { role: 'assistant', content: `✅ Conexão estabelecida com sucesso ao banco **${dbType.toUpperCase()}** (${dbConfig.database})! Já pode fazer suas perguntas.` }
@@ -213,15 +214,20 @@ export default function ChatPage() {
         ]);
       }
 
-      // 3. Chamada para a API do Backend da IA
-      const response = await fetch('http://localhost:3333/api/chat', {
+      // 3. Chamada para a API do Backend da IA (utilizando a rota local /api/connect-db ou /api/chat)
+      const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig })
+        body: JSON.stringify({ 
+          prompt: userMessage, 
+          dbType, 
+          dbConfig,
+          activeConnection 
+        })
       });
       
       const data = await response.json();
-      const assistantReply = data.reply || 'Desculpe, tive um problema ao processar os dados.';
+      const assistantReply = data.reply || data.message || 'Desculpe, tive um problema ao processar os dados.';
 
       // 4. Salvar resposta da IA no banco
       if (currentSessionId && user) {
@@ -376,8 +382,8 @@ export default function ChatPage() {
 
                 <button
                   type="submit"
-                  disabled={false}
-                  className="w-full bg-white hover:bg-slate-200 text-xs font-medium text-slate-900 py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-2 shadow-sm"
+                  disabled={connecting}
+                  className="w-full bg-white hover:bg-slate-200 text-xs font-medium text-slate-900 py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-2 shadow-sm disabled:opacity-50"
                 >
                   {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-900" />}
                   {isConnected ? 'Reconectar / Atualizar' : 'Testar & Conectar Banco'}
@@ -535,7 +541,7 @@ export default function ChatPage() {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   if (input.trim() && !loading && isConnected) {
-                    handleSend(e);
+                    handleSend(e as any);
                     e.currentTarget.style.height = 'auto';
                   }
                 }
