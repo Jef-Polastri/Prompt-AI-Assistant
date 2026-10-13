@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { executarAgente } from '.../src/agent'; // Ajuste o caminho se necessário para o seu agent.ts
+import { executarAgente } from '../../../src/agent'; // Ajuste o caminho se necessário para o seu agent.ts
 
 // Inicializa o cliente do Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
