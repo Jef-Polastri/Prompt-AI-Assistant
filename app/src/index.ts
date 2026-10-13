@@ -1,11 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import * as dotenv from 'dotenv';
+//import * as dotenv from 'dotenv';
 import { Pool as PgPool } from 'pg';
 import mysql from 'mysql2/promise';
 import { executarAgente } from './agent';
 
-dotenv.config();
+//dotenv.config();
 
 const app = express();
 app.use(cors());
