@@ -16,20 +16,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log("--> Recebido na API:", body);
 
-    const { prompt, dbType, dbConfig, activeConnection } = body;
+    const { prompt, type, dbType, host, port, database, user, password, dbConfig, activeConnection } = body;
 
-    const configUsada = activeConnection || dbConfig;
-    const tipoUsado = activeConnection?.type || dbType;
+    // Unifica a captura das configurações de qualquer formato que venha do frontend
+    const tipoUsado = type || dbType || activeConnection?.type || 'postgres';
+    const configUsada = activeConnection || dbConfig || { host, port, database, user, password };
 
     // Se a intenção for apenas testar/conectar o banco de dados (sem prompt de chat)
     if (!prompt) {
-      if (!configUsada) {
-        return NextResponse.json({ success: false, error: "Configurações do banco não fornecidas." }, { status: 400 });
+      if (!configUsada || !configUsada.host) {
+        return NextResponse.json({ success: false, error: "Configurações do banco não fornecidas ou incompletas." }, { status: 400 });
       }
 
       let testClient: any = null;
 
-      if (tipoUsado === 'postgres') {
+      if (tipoUsado === 'postgres' || tipoUsado === 'postgresql') {
         testClient = new Pool({
           host: configUsada.host,
           port: Number(configUsada.port || 5432),
@@ -77,7 +78,6 @@ export async function POST(request: Request) {
         data: body 
       }, { status: 200 });
     }
-
     // Se houver um prompt, criamos a instância viva do cliente para o agente usar
     let clientInstance: any = null;
 
