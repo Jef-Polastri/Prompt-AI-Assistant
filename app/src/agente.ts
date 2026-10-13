@@ -1,8 +1,8 @@
 import { gerarConteudoIA } from '../services/ai/aiService.js';
-import * as dotenv from 'dotenv';
+//import * as dotenv from 'dotenv';
 
 
-dotenv.config();
+//dotenv.config();
 
 // Função para inspecionar as tabelas e colunas do banco do cliente (Metadados)
 async function obterEsquemaBanco(activeConnection: any): Promise<string> {
