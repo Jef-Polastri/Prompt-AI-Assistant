@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check } from 'lucide-react';
+import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism'; // Tema escuro bonito
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'; // Tema escuro bonito
 
 interface Message {
   role: 'user' | 'assistant';
@@ -134,6 +134,27 @@ export default function ChatPage() {
         content: 'Nova consulta iniciada! Selecione ou confirme a conexão do banco para realizar sua pergunta.'
       }
     ]);
+  };
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita que clique na lixeira e abra o chat ao mesmo tempo
+
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (!error) {
+        // Remove da lista local
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        // Se o chat excluído era o ativo, limpa a tela
+        if (activeSessionId === sessionId) {
+          handleNewChat();
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao excluir chat:', err);
+    }
   };
 
   // Função de Logout
@@ -429,17 +450,28 @@ export default function ChatPage() {
                 </p>
               ) : (
                 sessions.map((session) => (
-                  <button
+                  <div
                     key={session.id}
                     onClick={() => handleSelectSession(session.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs rounded-xl transition text-left truncate cursor-pointer ${activeSessionId === session.id
+                    className={`group relative flex items-center justify-between px-3 py-2 text-xs rounded-xl transition cursor-pointer ${activeSessionId === session.id
                         ? 'bg-[#282a2c] text-white font-medium'
                         : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
                       }`}
                   >
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                    <span className="truncate">{session.title}</span>
-                  </button>
+                    <div className="flex items-center gap-2.5 truncate pr-6">
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                      <span className="truncate">{session.title}</span>
+                    </div>
+
+                    {/* Ícone de lixeira que aparece ao passar o mouse */}
+                    <button
+                      onClick={(e) => handleDeleteSession(session.id, e)}
+                      className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
+                      title="Excluir chat"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -497,91 +529,89 @@ export default function ChatPage() {
           </span>
         </header>
         {/* Histórico de Mensagens */}
-<div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
-  {messages.map((msg, index) => (
-    <div
-      key={index}
-      className={`flex gap-4 max-w-3xl mx-auto ${
-        msg.role === 'user' ? 'justify-end' : 'justify-start'
-      }`}
-    >
-      <div
-        className={`p-4 rounded-2xl text-sm leading-relaxed ${
-          msg.role === 'user'
-            ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
-            : 'bg-transparent text-slate-200 w-full'
-        }`}
-      >
-        {msg.role === 'user' ? (
-          msg.content
-        ) : (
-          <div className="relative group">
-            <ReactMarkdown
-              components={{
-                p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
-                hr: () => null,
-                ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
-                li: ({ children }) => <div className="leading-relaxed">{children}</div>,
-                code({ node, inline, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  return !inline && match ? (
-                    <SyntaxHighlighter
-                      style={vscDarkPlus}
-                      language={match[1]}
-                      PreTag="div"
-                      customStyle={{
-                        borderRadius: '0.75rem',
-                        padding: '1rem',
-                        marginTop: '0.75rem',
-                        marginBottom: '0.75rem',
-                        backgroundColor: '#1e1e1e',
-                      }}
-                      {...props}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={`${className} bg-neutral-800 px-1.5 py-0.5 rounded text-xs`} {...props}>
-                      {children}
-                    </code>
-                  );
-                }
-              }}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
+          {messages.map((msg, index) => (
+            <div
+              key={index}
+              className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
             >
-              {msg.content}
-            </ReactMarkdown>
-
-            {/* Botão de Copiar (Aparece no rodapé da mensagem da IA) */}
-            <div className="mt-2 flex justify-start">
-              <button
-                onClick={() => handleCopy(msg.content, index)}
-                className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 bg-neutral-800/40 hover:bg-neutral-800 px-2.5 py-1 rounded-md transition-colors border border-neutral-700/50"
-                title="Copiar texto"
+              <div
+                className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
+                    ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
+                    : 'bg-transparent text-slate-200 w-full'
+                  }`}
               >
-                {copiedIndex === index ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-green-400" />
-                    <span className="text-green-400">Copiado!</span>
-                  </>
+                {msg.role === 'user' ? (
+                  msg.content
                 ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copiar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+                  <div className="relative group">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                        hr: () => null,
+                        ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
+                        li: ({ children }) => <div className="leading-relaxed">{children}</div>,
+                        code({ node, inline, className, children, ...props }: any) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={vscDarkPlus}
+                              language={match[1]}
+                              PreTag="div"
+                              customStyle={{
+                                borderRadius: '0.75rem',
+                                padding: '1rem',
+                                marginTop: '0.75rem',
+                                marginBottom: '0.75rem',
+                                backgroundColor: '#1e1e1e',
+                              }}
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={`${className} bg-neutral-800 px-1.5 py-0.5 rounded text-xs`} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
 
-      {msg.role === 'user' && (
-        <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
-          EU
-        </div>
-      )}
-    </div>
-  ))}
+                    {/* Botão de Copiar (Aparece no rodapé da mensagem da IA) */}
+                    <div className="mt-2 flex justify-start">
+                      <button
+                        onClick={() => handleCopy(msg.content, index)}
+                        className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 bg-neutral-800/40 hover:bg-neutral-800 px-2.5 py-1 rounded-md transition-colors border border-neutral-700/50"
+                        title="Copiar texto"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-green-400" />
+                            <span className="text-green-400">Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copiar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {msg.role === 'user' && (
+                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
+                  EU
+                </div>
+              )}
+            </div>
+          ))}
           {/* Indicador de Carregamento (Loading) */}
           {loading && (
             <div className="flex gap-4 max-w-3xl mx-auto justify-start">
