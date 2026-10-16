@@ -531,6 +531,13 @@ export default function ChatPage() {
           style={vscDarkPlus}
           language={match[1]}
           PreTag="div"
+          customStyle={{
+        borderRadius: '0.75rem', // Equivalente ao rounded-xl do Tailwind
+        padding: '1rem',
+        marginTop: '0.75rem',
+        marginBottom: '0.75rem',
+        backgroundColor: '#1e1e1e', // Garante o tom escuro padrão do tema
+      }}
           {...props}
         >
           {String(children).replace(/\n$/, '')}
