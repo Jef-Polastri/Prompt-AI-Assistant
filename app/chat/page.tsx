@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism'; // Tema escuro bonito
 
 interface Message {
   role: 'user' | 'assistant';
@@ -489,32 +492,59 @@ export default function ChatPage() {
         </header>
 
         {/* Histórico de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`flex gap-4 max-w-3xl mx-auto ${
-                msg.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
-                className={`p-4 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
-                    : 'bg-transparent text-slate-200 whitespace-pre-wrap'
-                }`}
-              >
-                {msg.content}
-              </div>
+<div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
+  {messages.map((msg, index) => (
+    <div
+      key={index}
+      className={`flex gap-4 max-w-3xl mx-auto ${
+        msg.role === 'user' ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      <div
+        className={`p-4 rounded-2xl text-sm leading-relaxed ${
+          msg.role === 'user'
+            ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
+            : 'bg-transparent text-slate-200 w-full' // Removi o whitespace-pre-wrap pois o markdown cuida disso
+        }`}
+      >
+        {msg.role === 'user' ? (
+          // Se for mensagem do usuário, exibe texto simples
+          msg.content
+        ) : (
+          // Se for mensagem do assistente, renderiza o Markdown com suporte a SQL colorido
+          <ReactMarkdown
+            components={{
+              code({ node, inline, className, children, ...props }: any) {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className={`${className} bg-neutral-800 px-1 py-0.5 rounded text-xs`} {...props}>
+                    {children}
+                  </code>
+                );
+              }
+            }}
+          >
+            {msg.content}
+          </ReactMarkdown>
+        )}
+      </div>
 
-              {msg.role === 'user' && (
-                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
-                  EU
-                </div>
-              )}
-            </div>
-          ))}
-
+      {msg.role === 'user' && (
+        <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
+          EU
+        </div>
+      )}
+    </div>
+  ))}
           {/* Indicador de Carregamento (Loading) */}
           {loading && (
             <div className="flex gap-4 max-w-3xl mx-auto justify-start">
