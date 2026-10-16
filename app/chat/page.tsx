@@ -513,28 +513,38 @@ export default function ChatPage() {
         ) : (
           // Se for mensagem do assistente, renderiza o Markdown com suporte a SQL colorido
           <ReactMarkdown
-            components={{
-              code({ node, inline, className, children, ...props }: any) {
-                const match = /language-(\w+)/.exec(className || '');
-                return !inline && match ? (
-                  <SyntaxHighlighter
-                    style={vscDarkPlus}
-                    language={match[1]}
-                    PreTag="div"
-                    {...props}
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code className={`${className} bg-neutral-800 px-1 py-0.5 rounded text-xs`} {...props}>
-                    {children}
-                  </code>
-                );
-              }
-            }}
-          >
-            {msg.content}
-          </ReactMarkdown>
+  components={{
+    // Cada parágrafo ganha um respiro sutil embaixo (mb-3) e uma leitura confortável
+    p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+    
+    // Remove completamente a linha divisória (hr) para não aparecer aquela linha branca indesejada
+    hr: () => null,
+    
+    // Mantém o comportamento padrão limpo para listas, caso a IA use pontualmente, mas com espaçamento sutil
+    ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
+    li: ({ children }) => <div className="leading-relaxed">{children}</div>,
+
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={vscDarkPlus}
+          language={match[1]}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={`${className} bg-neutral-800 px-1 py-0.5 rounded text-xs`} {...props}>
+          {children}
+        </code>
+      );
+    }
+  }}
+>
+  {msg.content}
+</ReactMarkdown>
         )}
       </div>
 
