@@ -26,7 +26,11 @@
     "react-dom": "^19.0.0",
     "oracledb": "^6.x.x",
     "mssql": "^10.x.x",
-    "mysql2": "^3.x.x"
+    "mysql2": "^3.x.x",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
