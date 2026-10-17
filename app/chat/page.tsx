@@ -568,6 +568,21 @@ export default function ChatPage() {
             <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
             <h1 className="font-medium text-sm text-slate-200">Chat</h1>
           </div>
+    {/* Badge estilo "Upgrade" do Gemini com a sua Logo */}
+    <a
+      href="mailto:jefersonpollastri@gmail.com?subject=Upgrade%20de%20Plano%20-%20SaaS"
+      className="flex items-center gap-2 bg-[#2563eb]/20 hover:bg-[#2563eb]/30 border border-[#2563eb]/40 text-blue-300 px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer shadow-sm"
+      title="Período experimental ativo"
+    >
+      <img
+        src="/logos/LogoPrompt.png"
+        alt="Logo"
+        className="w-4 h-4 object-contain"
+      />
+      <span>
+        {isTrialExpired ? 'Teste Expirado (Fazer Upgrade)' : 'Período Experimental (7 dias)'}
+      </span>
+    </a>
           <span className="text-xs bg-[#1e1f20] text-slate-300 border border-[#2d2f31] px-3 py-1 rounded-full font-medium">
             {isConnected ? `Conectado (${dbType.toUpperCase()})` : 'Aguardando Conexão'}
           </span>
