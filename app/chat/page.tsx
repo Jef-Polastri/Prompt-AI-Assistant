@@ -31,6 +31,7 @@ export default function ChatPage() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Estados do Histórico e Sessão
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -285,7 +286,6 @@ export default function ChatPage() {
   const userEmail = user?.email || 'utilizador@sonar.ai';
   const userInitial = userEmail.charAt(0).toUpperCase();
 
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
