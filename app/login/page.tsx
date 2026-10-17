@@ -38,7 +38,7 @@ export default function LoginPage() {
 
         <div className="space-y-6 max-w-lg">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#282a2c] border border-[#3c3f42] text-xs font-medium text-slate-300">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <Database className="w-3.5 h-3.5 text-amber-400" />
             <span>Inteligência de Dados Conversacional B2B</span>
           </div>
           
