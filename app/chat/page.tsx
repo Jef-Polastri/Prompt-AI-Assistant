@@ -574,11 +574,11 @@ export default function ChatPage() {
       className="flex items-center gap-2 bg-[#2563eb]/20 hover:bg-[#2563eb]/30 border border-[#2563eb]/40 text-blue-300 px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer shadow-sm"
       title="Período experimental ativo"
     >
-      <img
+      {/*<img
         src="/logos/LogoPrompt.png"
         alt="Logo"
         className="w-6 h-6 object-contain"
-      />
+      />*/}
       <span>
         {isTrialExpired ? 'Teste Expirado (Fazer Upgrade)' : 'Período Experimental (7 dias)'}
       </span>
