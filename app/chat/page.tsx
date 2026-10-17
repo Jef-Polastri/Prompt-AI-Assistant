@@ -544,80 +544,78 @@ export default function ChatPage() {
                 {msg.role === 'user' ? (
                   msg.content
                 ) : (
-                  <div className="relative group">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
-                        hr: () => null,
-                        ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
-                        li: ({ children }) => <div className="leading-relaxed">{children}</div>,
-                        code({ node, inline, className, children, ...props }: any) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          return !inline && match ? (
-                            <div className="my-3 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800">
-                              <div className="bg-[#2d2d2d] px-4 py-1.5 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
-                                <span>{match[1]}</span>
-                              </div>
-                              <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
-                                <code>{String(children).replace(/\n$/, '')}</code>
-                              </pre>
-                            </div>
-                          ) : (
-                            <code className={`${className} bg-neutral-800 text-amber-300 px-1.5 py-0.5 rounded text-xs`} {...props}>
-                              {children}
-                            </code>
-                          );
-                        }
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-
-                    {/* Botão de Copiar (Aparece no rodapé da mensagem da IA) */}
-                    <div className="relative group/copy mt-2">
+                  <div className="relative group/msg w-full">
+                    {/* 1. Botão de Copiar no topo (Canto Superior Direito) */}
+                    <div className="absolute top-0 right-0 z-10">
                       <button
                         onClick={() => handleCopy(msg.content, index)}
-                        className="opacity-0 group-hover/copy:opacity-100 flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 bg-neutral-800/60 hover:bg-neutral-800 px-2.5 py-1 rounded-md transition-all border border-neutral-700/50 cursor-pointer"
-                        title="Copiar texto"
+                        className="opacity-0 group-hover/msg:opacity-100 flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-[#1e1f20]/90 hover:bg-neutral-800 p-2 rounded-lg transition-all border border-neutral-700/50 cursor-pointer shadow-md"
+                        title="Copiar resposta"
                       >
                         {copiedIndex === index ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-green-400" />
-                            <span className="text-green-400">Copiado!</span>
+                            <span className="text-green-400 font-sans text-[11px]">Copiado!</span>
                           </>
                         ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copiar</span>
-                          </>
+                          <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
+                    </div>
+                    <div className="relative group">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                          hr: () => null,
+                          ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
+                          li: ({ children }) => <div className="leading-relaxed">{children}</div>,
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <div className="my-3 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800">
+                                <div className="bg-[#2d2d2d] px-4 py-1.5 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
+                                  <span>{match[1]}</span>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
+                                  <code>{String(children).replace(/\n$/, '')}</code>
+                                </pre>
+                              </div>
+                            ) : (
+                              <code className={`${className} bg-neutral-800 text-amber-300 px-1.5 py-0.5 rounded text-xs`} {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 )}
               </div>
 
               {msg.role === 'user' && (
-                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
-                  EU
+                  <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
+                    EU
+                  </div>
+                )}
+              </div>
+          ))}
+              {/* Indicador de Carregamento (Loading) */}
+              {loading && (
+                <div className="flex gap-4 max-w-3xl mx-auto justify-start">
+                  <div className="flex items-center space-x-1.5 w-fit p-4">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.2s]"></span>
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.1s]"></span>
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s]"></span>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
-          {/* Indicador de Carregamento (Loading) */}
-          {loading && (
-            <div className="flex gap-4 max-w-3xl mx-auto justify-start">
-              <div className="flex items-center space-x-1.5 w-fit p-4">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.2s]"></span>
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.1s]"></span>
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s]"></span>
-              </div>
-            </div>
-          )}
-        </div>
 
-        {/* Barra de Input Inferior estilo Gemini Dark */}
-        <div className="p-4 md:p-6 bg-[#131314] shrink-0">
+        {/* Barra de Input Inferior estilo Gemini Dark */ }
+            < div className = "p-4 md:p-6 bg-[#131314] shrink-0" >
           <form onSubmit={handleSend} className="max-w-3xl mx-auto relative bg-[#1e1f20] rounded-3xl px-4 py-3 border border-[#2d2f31]/50">
             <textarea
               value={input}
