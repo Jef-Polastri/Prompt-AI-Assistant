@@ -565,15 +565,24 @@ export default function ChatPage() {
                     <div className="relative group">
                       <ReactMarkdown
                         components={{
-                          p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                          // Parágrafos com margem inferior generosa (mb-5 ou mb-6)
+                          p: ({ children }) => (
+                            <p className="mb-5 leading-relaxed text-slate-200">{children}</p>
+                          ),
                           hr: () => null,
-                          ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
-                          li: ({ children }) => <div className="leading-relaxed">{children}</div>,
+                          // Listas com espaçamento amplo
+                          ul: ({ children }) => (
+                            <div className="space-y-3 mb-5">{children}</div>
+                          ),
+                          li: ({ children }) => (
+                            <div className="leading-relaxed text-slate-200">{children}</div>
+                          ),
+                          // Bloco de código com margem superior e inferior reforçada (my-6)
                           code({ node, inline, className, children, ...props }: any) {
                             const match = /language-(\w+)/.exec(className || '');
                             return !inline && match ? (
-                              <div className="my-3 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800">
-                                <div className="bg-[#2d2d2d] px-4 py-1.5 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
+                              <div className="my-6 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800 shadow-sm">
+                                <div className="bg-[#2d2d2d] px-4 py-2 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
                                   <span>{match[1]}</span>
                                 </div>
                                 <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
@@ -596,26 +605,26 @@ export default function ChatPage() {
               </div>
 
               {msg.role === 'user' && (
-                  <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-sans">
-                    EU
-                  </div>
-                )}
-              </div>
-          ))}
-              {/* Indicador de Carregamento (Loading) */}
-              {loading && (
-                <div className="flex gap-4 max-w-3xl mx-auto justify-start">
-                  <div className="flex items-center space-x-1.5 w-fit p-4">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.2s]"></span>
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.1s]"></span>
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s]"></span>
-                  </div>
+                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-sans">
+                  EU
                 </div>
               )}
             </div>
+          ))}
+          {/* Indicador de Carregamento (Loading) */}
+          {loading && (
+            <div className="flex gap-4 max-w-3xl mx-auto justify-start">
+              <div className="flex items-center space-x-1.5 w-fit p-4">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.2s]"></span>
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.1s]"></span>
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s]"></span>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Barra de Input Inferior estilo Gemini Dark */ }
-            < div className = "p-4 md:p-6 bg-[#131314] shrink-0" >
+        {/* Barra de Input Inferior estilo Gemini Dark */}
+        < div className="p-4 md:p-6 bg-[#131314] shrink-0" >
           <form onSubmit={handleSend} className="max-w-3xl mx-auto relative bg-[#1e1f20] rounded-3xl px-4 py-3 border border-[#2d2f31]/50">
             <textarea
               value={input}
