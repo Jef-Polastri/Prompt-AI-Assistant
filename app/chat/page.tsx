@@ -448,7 +448,7 @@ export default function ChatPage() {
                   Nenhuma consulta recente.
                 </p>
               ) : (
-                sessions.map((session) => (
+                sessions.map((session) => ( 
                   <div
                     key={session.id}
                     onClick={() => handleSelectSession(session.id)}
@@ -536,7 +536,7 @@ export default function ChatPage() {
                 }`}
             >
               <div
-                className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
+                className={`p-4 rounded-2xl text[16px] leading-relaxed ${msg.role === 'user'
                   ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
                   : 'bg-transparent text-slate-200 w-full'
                   }`}
@@ -567,15 +567,15 @@ export default function ChatPage() {
                         components={{
                           // Parágrafos com margem inferior generosa (mb-5 ou mb-6)
                           p: ({ children }) => (
-                            <p className="mb-5 leading-relaxed text-slate-200">{children}</p>
+                            <p className="mb-5 text[16px]leading-relaxed text-slate-200">{children}</p>
                           ),
                           hr: () => null,
                           // Listas com espaçamento amplo
                           ul: ({ children }) => (
-                            <div className="space-y-3 mb-5">{children}</div>
+                            <div className="space-y-3 mb-5 text[16px]">{children}</div>
                           ),
                           li: ({ children }) => (
-                            <div className="leading-relaxed text-slate-200">{children}</div>
+                            <div className="leading-relaxed text[16px] text-slate-200">{children}</div>
                           ),
                           // Bloco de código com margem superior e inferior reforçada (my-6)
                           code({ node, inline, className, children, ...props }: any) {
@@ -605,7 +605,7 @@ export default function ChatPage() {
               </div>
 
               {msg.role === 'user' && (
-                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-sans">
+                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text[16px] font-sans">
                   EU
                 </div>
               )}
