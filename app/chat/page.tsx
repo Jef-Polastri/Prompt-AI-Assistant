@@ -574,10 +574,10 @@ export default function ChatPage() {
                     </ReactMarkdown>
 
                     {/* Botão de Copiar (Aparece no rodapé da mensagem da IA) */}
-                    <div className="mt-2 flex justify-start">
+                    <div className="relative group/copy mt-2">
                       <button
                         onClick={() => handleCopy(msg.content, index)}
-                        className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 bg-neutral-800/40 hover:bg-neutral-800 px-2.5 py-1 rounded-md transition-colors border border-neutral-700/50"
+                        className="opacity-0 group-hover/copy:opacity-100 flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-200 bg-neutral-800/60 hover:bg-neutral-800 px-2.5 py-1 rounded-md transition-all border border-neutral-700/50 cursor-pointer"
                         title="Copiar texto"
                       >
                         {copiedIndex === index ? (
