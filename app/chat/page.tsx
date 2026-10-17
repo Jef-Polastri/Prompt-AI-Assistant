@@ -4,14 +4,6 @@ import { useEffect, useState } from 'react';
 import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
-import dynamic from 'next/dynamic';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
-// Importa o Syntax Highlighter de forma dinâmica desativando o SSR para evitar erros no Next.js
-const SyntaxHighlighter = dynamic<any>(
-  () => import('react-syntax-highlighter').then((mod) => mod.Prism),
-  { ssr: false }
-);
 
 
 interface Message {
@@ -561,26 +553,17 @@ export default function ChatPage() {
                         li: ({ children }) => <div className="leading-relaxed">{children}</div>,
                         code({ node, inline, className, children, ...props }: any) {
                           const match = /language-(\w+)/.exec(className || '');
-                          const HighlightComponent = SyntaxHighlighter as any; // Força a tipagem para aceitar o style sem reclamar
-                          const themeStyle = vscDarkPlus as any;
                           return !inline && match ? (
-                            <HighlightComponent
-                              style={themeStyle}
-                              language={match[1]}
-                              PreTag="div"
-                              customStyle={{
-                                borderRadius: '0.75rem',
-                                padding: '1rem',
-                                marginTop: '0.75rem',
-                                marginBottom: '0.75rem',
-                                backgroundColor: '#1e1e1e',
-                              }}
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </HighlightComponent>
+                            <div className="my-3 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800">
+                              <div className="bg-[#2d2d2d] px-4 py-1.5 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
+                                <span>{match[1]}</span>
+                              </div>
+                              <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
+                                <code>{String(children).replace(/\n$/, '')}</code>
+                              </pre>
+                            </div>
                           ) : (
-                            <code className={`${className} bg-neutral-800 px-1.5 py-0.5 rounded text-xs`} {...props}>
+                            <code className={`${className} bg-neutral-800 text-amber-300 px-1.5 py-0.5 rounded text-xs`} {...props}>
                               {children}
                             </code>
                           );
