@@ -577,7 +577,7 @@ export default function ChatPage() {
       <img
         src="/logos/LogoPrompt.png"
         alt="Logo"
-        className="w-4 h-4 object-contain"
+        className="w-10 h-10 object-contain"
       />
       <span>
         {isTrialExpired ? 'Teste Expirado (Fazer Upgrade)' : 'Período Experimental (7 dias)'}
