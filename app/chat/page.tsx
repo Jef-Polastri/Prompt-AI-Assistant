@@ -528,7 +528,7 @@ export default function ChatPage() {
           </span>
         </header>
         {/* Histórico de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans">
           {messages.map((msg, index) => (
             <div
               key={index}
@@ -596,7 +596,7 @@ export default function ChatPage() {
               </div>
 
               {msg.role === 'user' && (
-                  <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
+                  <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-sans">
                     EU
                   </div>
                 )}
