@@ -5,10 +5,10 @@ import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Cop
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
-
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // Importa o Syntax Highlighter de forma dinâmica desativando o SSR para evitar erros no Next.js
-const SyntaxHighlighter = dynamic(
+const SyntaxHighlighter = dynamic<any>(
   () => import('react-syntax-highlighter').then((mod) => mod.Prism),
   { ssr: false }
 );
@@ -461,8 +461,8 @@ export default function ChatPage() {
                     key={session.id}
                     onClick={() => handleSelectSession(session.id)}
                     className={`group relative flex items-center justify-between px-3 py-2 text-xs rounded-xl transition cursor-pointer ${activeSessionId === session.id
-                        ? 'bg-[#282a2c] text-white font-medium'
-                        : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
+                      ? 'bg-[#282a2c] text-white font-medium'
+                      : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
                       }`}
                   >
                     <div className="flex items-center gap-2.5 truncate pr-6">
@@ -545,8 +545,8 @@ export default function ChatPage() {
             >
               <div
                 className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                    ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
-                    : 'bg-transparent text-slate-200 w-full'
+                  ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
+                  : 'bg-transparent text-slate-200 w-full'
                   }`}
               >
                 {msg.role === 'user' ? (
@@ -561,8 +561,10 @@ export default function ChatPage() {
                         li: ({ children }) => <div className="leading-relaxed">{children}</div>,
                         code({ node, inline, className, children, ...props }: any) {
                           const match = /language-(\w+)/.exec(className || '');
+                          const HighlightComponent = SyntaxHighlighter as any; // Força a tipagem para aceitar o style sem reclamar
+                          const themeStyle = vscDarkPlus as any;
                           return !inline && match ? (
-                            <SyntaxHighlighter
+                            <HighlightComponent
                               style={vscDarkPlus}
                               language={match[1]}
                               PreTag="div"
@@ -576,7 +578,7 @@ export default function ChatPage() {
                               {...props}
                             >
                               {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
+                            </HighlightComponent>
                           ) : (
                             <code className={`${className} bg-neutral-800 px-1.5 py-0.5 rounded text-xs`} {...props}>
                               {children}
