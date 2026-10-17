@@ -552,7 +552,7 @@ export default function ChatPage() {
               </p>
               <div className="pt-2">
                 <a
-                  href="mailto:contato@suaempresa.com?subject=Renovacao%20de%20Acesso%20-%20SaaS"
+                  href="mailto:jefersonpollastri@gmail.com?subject=Renovacao%20de%20Acesso%20-%20SaaS"
                   className="inline-block w-full py-2.5 px-4 bg-white text-black hover:bg-neutral-200 font-medium text-sm rounded-xl transition-all shadow-md text-center"
                 >
                   Entrar em Contato com a Empresa
