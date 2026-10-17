@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus } from 'lucide-react';
+import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism'; // Tema escuro bonito
+
 
 interface Message {
   role: 'user' | 'assistant';
@@ -32,6 +31,7 @@ export default function ChatPage() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Estados do Histórico e Sessão
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -55,7 +55,7 @@ export default function ChatPage() {
     async function checkUser() {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error || !session) {
           window.location.href = '/login';
           return;
@@ -135,6 +135,27 @@ export default function ChatPage() {
       }
     ]);
   };
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita que clique na lixeira e abra o chat ao mesmo tempo
+
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (!error) {
+        // Remove da lista local
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        // Se o chat excluído era o ativo, limpa a tela
+        if (activeSessionId === sessionId) {
+          handleNewChat();
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao excluir chat:', err);
+    }
+  };
 
   // Função de Logout
   const handleLogout = async () => {
@@ -190,7 +211,7 @@ export default function ChatPage() {
       // 1. Criar nova sessão no Supabase se não houver uma ativa
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-        
+
         const { data: newSession, error: sessionErr } = await supabase
           .from('chat_sessions')
           .insert([
@@ -221,14 +242,14 @@ export default function ChatPage() {
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: userMessage, 
-          dbType, 
+        body: JSON.stringify({
+          prompt: userMessage,
+          dbType,
           dbConfig,
-          activeConnection 
+          activeConnection
         })
       });
-      
+
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Desculpe, tive um problema ao processar os dados.';
 
@@ -265,19 +286,26 @@ export default function ChatPage() {
   const userEmail = user?.email || 'utilizador@sonar.ai';
   const userInitial = userEmail.charAt(0).toUpperCase();
 
+
+  const handleCopy = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000); // Reseta o ícone após 2 segundos
+  };
+
   return (
     <div className="flex h-screen bg-[#131314] text-slate-100 font-sans">
-      
+
       {/* Sidebar estilo Gemini Dark */}
       <aside className="w-72 border-r border-[#2d2f31] bg-[#1e1f20] p-3 hidden md:flex flex-col justify-between overflow-y-auto">
         <div className="flex-1 flex flex-col min-h-0 space-y-3">
-          
+
           {/* Logo e Nome */}
           <div className="flex items-center px-2 py-2 shrink-0">
-            <img 
-              src="/logos/LogoPrompt.png" 
-              alt="Logo" 
-              className="w-10 h-10 object-contain gap-2" 
+            <img
+              src="/logos/LogoPrompt.png"
+              alt="Logo"
+              className="w-10 h-10 object-contain gap-2"
             />
             <span className="font-mono font-light text-lg tracking-tight text-white">prompt</span>
           </div>
@@ -294,15 +322,14 @@ export default function ChatPage() {
                   Conexão do Banco
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {isConnected && (
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conectado" />
                 )}
-                <ChevronDown 
-                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                    isDbMenuOpen ? 'rotate-180' : ''
-                  }`} 
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isDbMenuOpen ? 'rotate-180' : ''
+                    }`}
                 />
               </div>
             </button>
@@ -410,7 +437,7 @@ export default function ChatPage() {
                 className="p-1.5 hover:bg-[#282a2c] rounded-xl text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1 text-[11px]"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Novo</span>
+                <span>Novo chat</span>
               </button>
             </div>
 
@@ -422,18 +449,28 @@ export default function ChatPage() {
                 </p>
               ) : (
                 sessions.map((session) => (
-                  <button
+                  <div
                     key={session.id}
                     onClick={() => handleSelectSession(session.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs rounded-xl transition text-left truncate cursor-pointer ${
-                      activeSessionId === session.id
-                        ? 'bg-[#282a2c] text-white font-medium'
-                        : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
-                    }`}
+                    className={`group relative flex items-center justify-between px-3 py-2 text-xs rounded-xl transition cursor-pointer ${activeSessionId === session.id
+                      ? 'bg-[#282a2c] text-white font-medium'
+                      : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
+                      }`}
                   >
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                    <span className="truncate">{session.title}</span>
-                  </button>
+                    <div className="flex items-center gap-2.5 truncate pr-6">
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                      <span className="truncate">{session.title}</span>
+                    </div>
+
+                    {/* Ícone de lixeira que aparece ao passar o mouse */}
+                    <button
+                      onClick={(e) => handleDeleteSession(session.id, e)}
+                      className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
+                      title="Excluir chat"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -443,7 +480,7 @@ export default function ChatPage() {
 
         {/* Rodapé: Perfil do Usuário Logado & Menu de Logout */}
         <div className="relative border-t border-[#2d2f31] pt-3 shrink-0">
-          
+
           {/* Menu Flutuante de Logout */}
           {isUserMenuOpen && (
             <div className="absolute bottom-full left-0 w-full mb-2 bg-[#282a2c] border border-[#3c3f42] rounded-2xl p-1.5 shadow-lg z-50">
@@ -479,7 +516,7 @@ export default function ChatPage() {
 
       {/* Janela Principal do Chat */}
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#131314]">
-        
+
         {/* Header Superior */}
         <header className="h-14 border-b border-[#2d2f31] bg-[#131314] px-6 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -490,78 +527,90 @@ export default function ChatPage() {
             {isConnected ? `Conectado (${dbType.toUpperCase()})` : 'Aguardando Conexão'}
           </span>
         </header>
-
         {/* Histórico de Mensagens */}
-<div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono">
-  {messages.map((msg, index) => (
-    <div
-      key={index}
-      className={`flex gap-4 max-w-3xl mx-auto ${
-        msg.role === 'user' ? 'justify-end' : 'justify-start'
-      }`}
-    >
-      <div
-        className={`p-4 rounded-2xl text-sm leading-relaxed ${
-          msg.role === 'user'
-            ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
-            : 'bg-transparent text-slate-200 w-full' // Removi o whitespace-pre-wrap pois o markdown cuida disso
-        }`}
-      >
-        {msg.role === 'user' ? (
-          // Se for mensagem do usuário, exibe texto simples
-          msg.content
-        ) : (
-          // Se for mensagem do assistente, renderiza o Markdown com suporte a SQL colorido
-          <ReactMarkdown
-  components={{
-    // Cada parágrafo ganha um respiro sutil embaixo (mb-3) e uma leitura confortável
-    p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
-    
-    // Remove completamente a linha divisória (hr) para não aparecer aquela linha branca indesejada
-    hr: () => null,
-    
-    // Mantém o comportamento padrão limpo para listas, caso a IA use pontualmente, mas com espaçamento sutil
-    ul: ({ children }) => <div className="space-y-2 mb-3">{children}</div>,
-    li: ({ children }) => <div className="leading-relaxed">{children}</div>,
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans">
+          {messages.map((msg, index) => (
+            <div
+              key={index}
+              className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+            >
+              <div
+                className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
+                  ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
+                  : 'bg-transparent text-slate-200 w-full'
+                  }`}
+              >
+                {msg.role === 'user' ? (
+                  msg.content
+                ) : (
+                  <div className="relative group/msg w-full">
+                    {/* 1. Botão de Copiar no topo (Canto Superior Direito) */}
+                    <div className="absolute top-0 right-0 z-10">
+                      <button
+                        onClick={() => handleCopy(msg.content, index)}
+                        className="opacity-0 group-hover/msg:opacity-100 flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-[#1e1f20]/90 hover:bg-neutral-800 p-2 rounded-lg transition-all border border-neutral-700/50 cursor-pointer shadow-md"
+                        title="Copiar resposta"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-green-400" />
+                            <span className="text-green-400 font-sans text-[11px]">Copiado!</span>
+                          </>
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="relative group">
+                      <ReactMarkdown
+                        components={{
+                          // Parágrafos com margem inferior generosa (mb-5 ou mb-6)
+                          p: ({ children }) => (
+                            <p className="mb-5 leading-relaxed text-slate-200">{children}</p>
+                          ),
+                          hr: () => null,
+                          // Listas com espaçamento amplo
+                          ul: ({ children }) => (
+                            <div className="space-y-3 mb-5">{children}</div>
+                          ),
+                          li: ({ children }) => (
+                            <div className="leading-relaxed text-slate-200">{children}</div>
+                          ),
+                          // Bloco de código com margem superior e inferior reforçada (my-6)
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <div className="my-6 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800 shadow-sm">
+                                <div className="bg-[#2d2d2d] px-4 py-2 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
+                                  <span>{match[1]}</span>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
+                                  <code>{String(children).replace(/\n$/, '')}</code>
+                                </pre>
+                              </div>
+                            ) : (
+                              <code className={`${className} bg-neutral-800 text-amber-300 px-1.5 py-0.5 rounded text-xs`} {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-    code({ node, inline, className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || '');
-      return !inline && match ? (
-        <SyntaxHighlighter
-          style={vscDarkPlus}
-          language={match[1]}
-          PreTag="div"
-          customStyle={{
-        borderRadius: '0.75rem', // Equivalente ao rounded-xl do Tailwind
-        padding: '1rem',
-        marginTop: '0.75rem',
-        marginBottom: '0.75rem',
-        backgroundColor: '#1e1e1e', // Garante o tom escuro padrão do tema
-      }}
-          {...props}
-        >
-          {String(children).replace(/\n$/, '')}
-        </SyntaxHighlighter>
-      ) : (
-        <code className={`${className} bg-neutral-800 px-1 py-0.5 rounded text-xs`} {...props}>
-          {children}
-        </code>
-      );
-    }
-  }}
->
-  {msg.content}
-</ReactMarkdown>
-        )}
-      </div>
-
-      {msg.role === 'user' && (
-        <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-mono">
-          EU
-        </div>
-      )}
-    </div>
-  ))}
+              {msg.role === 'user' && (
+                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-xs font-sans">
+                  EU
+                </div>
+              )}
+            </div>
+          ))}
           {/* Indicador de Carregamento (Loading) */}
           {loading && (
             <div className="flex gap-4 max-w-3xl mx-auto justify-start">
@@ -575,7 +624,7 @@ export default function ChatPage() {
         </div>
 
         {/* Barra de Input Inferior estilo Gemini Dark */}
-        <div className="p-4 md:p-6 bg-[#131314] shrink-0">
+        < div className="p-4 md:p-6 bg-[#131314] shrink-0" >
           <form onSubmit={handleSend} className="max-w-3xl mx-auto relative bg-[#1e1f20] rounded-3xl px-4 py-3 border border-[#2d2f31]/50">
             <textarea
               value={input}
@@ -598,7 +647,7 @@ export default function ChatPage() {
               rows={1}
               className="w-full bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none resize-none max-h-36 pr-12 pt-1 disabled:opacity-50"
             />
-            
+
             {/* Botão de Envio integrado */}
             <div className="absolute right-3 bottom-2.5">
               <button
@@ -610,7 +659,7 @@ export default function ChatPage() {
               </button>
             </div>
           </form>
-          
+
           <div className="max-w-3xl mx-auto px-4 mt-2">
             <p className="text-[11px] text-slate-500 text-center">
               O agente utiliza conectores dinâmicos para ler e traduzir dados do SGBD selecionado.
