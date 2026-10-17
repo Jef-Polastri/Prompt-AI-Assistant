@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2 } from 'lucide-react';
+import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2, Database } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 
@@ -317,7 +317,7 @@ export default function ChatPage() {
               className="w-full flex items-center justify-between p-3 text-left hover:bg-[#282a2c] transition cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <Settings2 className="w-4 h-4 text-slate-300" />
+                <Database className="w-4 h-4 text-slate-300" />
                 <span className="text-xs font-semibold text-slate-200 tracking-wider">
                   Conexão do Banco
                 </span>
