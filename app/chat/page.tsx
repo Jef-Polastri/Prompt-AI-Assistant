@@ -565,7 +565,7 @@ export default function ChatPage() {
                           const themeStyle = vscDarkPlus as any;
                           return !inline && match ? (
                             <HighlightComponent
-                              style={vscDarkPlus}
+                              style={themeStyle}
                               language={match[1]}
                               PreTag="div"
                               customStyle={{
