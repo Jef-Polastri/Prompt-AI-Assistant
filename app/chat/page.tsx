@@ -5,13 +5,14 @@ import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Cop
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 import dynamic from 'next/dynamic';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 // Importa o Syntax Highlighter de forma dinâmica desativando o SSR para evitar erros no Next.js
 const SyntaxHighlighter = dynamic(
   () => import('react-syntax-highlighter').then((mod) => mod.Prism),
   { ssr: false }
 );
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+
 
 interface Message {
   role: 'user' | 'assistant';
