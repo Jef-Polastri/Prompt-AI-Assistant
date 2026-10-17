@@ -5,7 +5,6 @@ import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Cop
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 
-
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -16,6 +15,20 @@ interface ChatSession {
   title: string;
   created_at: string;
 }
+
+// 1. Função auxiliar para verificar se o teste de 7 dias expirou
+const checkTrialExpired = (createdAtString: string) => {
+  if (!createdAtString) return false;
+  
+  const createdAt = new Date(createdAtString);
+  const now = new Date();
+  
+  // Diferença em milissegundos convertida para dias
+  const diffTime = now.getTime() - createdAt.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  
+  return diffDays > 7; // Retorna true se passou de 7 dias
+};
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -32,6 +45,9 @@ export default function ChatPage() {
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  // Estado para controlar se o período de teste expirou
+  const [isTrialExpired, setIsTrialExpired] = useState(false);
 
   // Estados do Histórico e Sessão
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -62,6 +78,13 @@ export default function ChatPage() {
         }
 
         setUser(session.user);
+        
+        // Avalia se o período de 7 dias expirou com base na data de criação do usuário no Supabase
+        if (session.user?.created_at) {
+          const expired = checkTrialExpired(session.user.created_at);
+          setIsTrialExpired(expired);
+        }
+
         loadSessions(session.user.id);
       } catch (err) {
         window.location.href = '/login';
@@ -77,6 +100,10 @@ export default function ChatPage() {
         window.location.href = '/login';
       } else {
         setUser(session.user);
+        if (session.user?.created_at) {
+          const expired = checkTrialExpired(session.user.created_at);
+          setIsTrialExpired(expired);
+        }
         loadSessions(session.user.id);
       }
     });
@@ -135,8 +162,9 @@ export default function ChatPage() {
       }
     ]);
   };
+
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Evita que clique na lixeira e abra o chat ao mesmo tempo
+    e.stopPropagation();
 
     try {
       const { error } = await supabase
@@ -145,9 +173,7 @@ export default function ChatPage() {
         .eq('id', sessionId);
 
       if (!error) {
-        // Remove da lista local
         setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        // Se o chat excluído era o ativo, limpa a tela
         if (activeSessionId === sessionId) {
           handleNewChat();
         }
@@ -166,6 +192,7 @@ export default function ChatPage() {
   // Função para testar/salvar a conexão com o banco
   const handleConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTrialExpired) return;
     setConnecting(true);
 
     const currentConnectionData = { type: dbType, ...dbConfig };
@@ -198,7 +225,7 @@ export default function ChatPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading || !isConnected) return;
+    if (!input.trim() || loading || !isConnected || isTrialExpired) return;
 
     const userMessage = input.trim();
     setInput('');
@@ -208,7 +235,6 @@ export default function ChatPage() {
     let currentSessionId = activeSessionId;
 
     try {
-      // 1. Criar nova sessão no Supabase se não houver uma ativa
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
 
@@ -231,14 +257,12 @@ export default function ChatPage() {
         }
       }
 
-      // 2. Salvar mensagem do usuário no banco
       if (currentSessionId && user) {
         await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
         ]);
       }
 
-      // 3. Chamada para a API do Backend da IA (utilizando a rota local /api/connect-db ou /api/chat)
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +277,6 @@ export default function ChatPage() {
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Desculpe, tive um problema ao processar os dados.';
 
-      // 4. Salvar resposta da IA no banco
       if (currentSessionId && user) {
         await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
@@ -286,15 +309,14 @@ export default function ChatPage() {
   const userEmail = user?.email || 'utilizador@sonar.ai';
   const userInitial = userEmail.charAt(0).toUpperCase();
 
-
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000); // Reseta o ícone após 2 segundos
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   return (
-    <div className="flex h-screen bg-[#131314] text-slate-100 font-sans">
+    <div className="flex h-screen bg-[#131314] text-slate-100 font-sans overflow-hidden">
 
       {/* Sidebar estilo Gemini Dark */}
       <aside className="w-72 border-r border-[#2d2f31] bg-[#1e1f20] p-3 hidden md:flex flex-col justify-between overflow-y-auto">
@@ -328,8 +350,7 @@ export default function ChatPage() {
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conectado" />
                 )}
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isDbMenuOpen ? 'rotate-180' : ''
-                    }`}
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isDbMenuOpen ? 'rotate-180' : ''}`}
                 />
               </div>
             </button>
@@ -412,7 +433,7 @@ export default function ChatPage() {
 
                 <button
                   type="submit"
-                  disabled={connecting}
+                  disabled={connecting || isTrialExpired}
                   className="w-full bg-white hover:bg-slate-200 text-xs font-medium text-slate-900 py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-2 shadow-sm disabled:opacity-50"
                 >
                   {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-900" />}
@@ -448,7 +469,7 @@ export default function ChatPage() {
                   Nenhuma consulta recente.
                 </p>
               ) : (
-                sessions.map((session) => ( 
+                sessions.map((session) => (
                   <div
                     key={session.id}
                     onClick={() => handleSelectSession(session.id)}
@@ -462,7 +483,6 @@ export default function ChatPage() {
                       <span className="truncate">{session.title}</span>
                     </div>
 
-                    {/* Ícone de lixeira que aparece ao passar o mouse */}
                     <button
                       onClick={(e) => handleDeleteSession(session.id, e)}
                       className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
@@ -515,7 +535,32 @@ export default function ChatPage() {
       </aside>
 
       {/* Janela Principal do Chat */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#131314]">
+      <main className="relative flex-1 flex flex-col h-full overflow-hidden bg-[#131314]">
+
+        {/* 2. MODAL DE BLOQUEIO / FIM DO PERÍODO DE TESTE (Aparece se passar de 7 dias) */}
+        {isTrialExpired && (
+          <div className="absolute inset-0 z-50 bg-[#131314]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div className="max-w-md bg-[#1e1f20] border border-neutral-800 p-8 rounded-2xl shadow-2xl space-y-4">
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                ⏳
+              </div>
+              <h2 className="text-xl font-semibold text-slate-100 font-sans">
+                Seu período de teste de 7 dias encerrou
+              </h2>
+              <p className="text-sm text-slate-400 leading-relaxed font-sans">
+                Esperamos que tenha aproveitado os insights do seu banco de dados! Para continuar utilizando a plataforma e liberar consultas ilimitadas, entre em contato com nossa equipe.
+              </p>
+              <div className="pt-2">
+                <a
+                  href="mailto:contato@suaempresa.com?subject=Renovacao%20de%20Acesso%20-%20SaaS"
+                  className="inline-block w-full py-2.5 px-4 bg-white text-black hover:bg-neutral-200 font-medium text-sm rounded-xl transition-all shadow-md text-center"
+                >
+                  Entrar em Contato com a Empresa
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header Superior */}
         <header className="h-14 border-b border-[#2d2f31] bg-[#131314] px-6 flex items-center justify-between shrink-0">
@@ -527,16 +572,16 @@ export default function ChatPage() {
             {isConnected ? `Conectado (${dbType.toUpperCase()})` : 'Aguardando Conexão'}
           </span>
         </header>
+
         {/* Histórico de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans">
+        <div className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
           {messages.map((msg, index) => (
             <div
               key={index}
-              className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'justify-end' : 'justify-start'
-                }`}
+              className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`p-4 rounded-2xl text[16px] leading-relaxed ${msg.role === 'user'
+                className={`p-4 rounded-2xl text-[16px] leading-relaxed ${msg.role === 'user'
                   ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
                   : 'bg-transparent text-slate-200 w-full'
                   }`}
@@ -545,7 +590,6 @@ export default function ChatPage() {
                   msg.content
                 ) : (
                   <div className="relative group/msg w-full">
-                    {/* 1. Botão de Copiar no topo (Canto Superior Direito) */}
                     <div className="absolute top-0 right-0 z-10">
                       <button
                         onClick={() => handleCopy(msg.content, index)}
@@ -565,19 +609,16 @@ export default function ChatPage() {
                     <div className="relative group">
                       <ReactMarkdown
                         components={{
-                          // Parágrafos com margem inferior generosa (mb-5 ou mb-6)
                           p: ({ children }) => (
-                            <p className="mb-5 text[16px]leading-relaxed text-slate-200">{children}</p>
+                            <p className="mb-5 text-[16px] leading-relaxed text-slate-200">{children}</p>
                           ),
                           hr: () => null,
-                          // Listas com espaçamento amplo
                           ul: ({ children }) => (
-                            <div className="space-y-3 mb-5 text[16px]">{children}</div>
+                            <div className="space-y-3 mb-5 text-[16px]">{children}</div>
                           ),
                           li: ({ children }) => (
-                            <div className="leading-relaxed text[16px] text-slate-200">{children}</div>
+                            <div className="leading-relaxed text-[16px] text-slate-200">{children}</div>
                           ),
-                          // Bloco de código com margem superior e inferior reforçada (my-6)
                           code({ node, inline, className, children, ...props }: any) {
                             const match = /language-(\w+)/.exec(className || '');
                             return !inline && match ? (
@@ -605,13 +646,13 @@ export default function ChatPage() {
               </div>
 
               {msg.role === 'user' && (
-                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text[16px] font-sans">
+                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-[16px] font-sans">
                   EU
                 </div>
               )}
             </div>
           ))}
-          {/* Indicador de Carregamento (Loading) */}
+
           {loading && (
             <div className="flex gap-4 max-w-3xl mx-auto justify-start">
               <div className="flex items-center space-x-1.5 w-fit p-4">
@@ -623,8 +664,8 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Barra de Input Inferior estilo Gemini Dark */}
-        < div className="p-4 md:p-6 bg-[#131314] shrink-0" >
+        {/* Barra de Input Inferior */}
+        <div className={`p-4 md:p-6 bg-[#131314] shrink-0 ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
           <form onSubmit={handleSend} className="max-w-3xl mx-auto relative bg-[#1e1f20] rounded-3xl px-4 py-3 border border-[#2d2f31]/50">
             <textarea
               value={input}
@@ -636,23 +677,22 @@ export default function ChatPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && isConnected) {
+                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
                     handleSend(e as any);
                     e.currentTarget.style.height = 'auto';
                   }
                 }
               }}
               placeholder={isConnected ? "Faça uma pergunta sobre os dados..." : "Conecte um banco de dados na barra lateral primeiro..."}
-              disabled={!isConnected}
+              disabled={!isConnected || isTrialExpired}
               rows={1}
               className="w-full bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none resize-none max-h-36 pr-12 pt-1 disabled:opacity-50"
             />
 
-            {/* Botão de Envio integrado */}
             <div className="absolute right-3 bottom-2.5">
               <button
                 type="submit"
-                disabled={loading || !input.trim() || !isConnected}
+                disabled={loading || !input.trim() || !isConnected || isTrialExpired}
                 className="bg-white hover:bg-slate-200 text-slate-900 disabled:opacity-30 p-2 rounded-3xl transition flex items-center justify-center shadow-sm cursor-pointer"
               >
                 <Send className="w-4 h-4" />
