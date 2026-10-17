@@ -437,7 +437,7 @@ export default function ChatPage() {
                 className="p-1.5 hover:bg-[#282a2c] rounded-xl text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1 text-[11px]"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Novo</span>
+                <span>Novo chat</span>
               </button>
             </div>
 
