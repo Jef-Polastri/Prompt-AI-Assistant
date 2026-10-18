@@ -502,7 +502,7 @@ export default function ChatPage() {
           <div className="flex items-center gap-3">
             <a
               href="mailto:jefersonpollastri@gmail.com"
-              className="flex items-center gap-2 bg-[#0000FF] hover:bg-[#2f2f2f] text-white px-3 py-1.5 rounded-full text-xs font-medium transition border border-white/5"
+              className="flex items-center gap-2 bg-[#0000FF] hover:bg-[#00008A] text-white px-3 py-1.5 rounded-full text-xs font-medium transition border border-white/5"
             >
               <span>Período Experimental (7 dias)</span>
             </a>
