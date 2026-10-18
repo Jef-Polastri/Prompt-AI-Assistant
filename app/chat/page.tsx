@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check, 
-  Trash2, Database, PanelLeftClose, PanelLeft 
+import {
+  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
+  Trash2, Database, PanelLeftClose, PanelLeft
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
@@ -283,13 +283,12 @@ export default function ChatPage() {
     <div className="flex h-screen bg-[#000000] text-[#ececec] font-sans overflow-hidden select-none">
 
       {/* Sidebar Retrátil Estilo ChatGPT */}
-      <aside 
-        className={`${
-          isSidebarOpen ? 'w-64 border-r border-[#212121]' : 'w-0 border-r-0'
-        } bg-[#171717] transition-all duration-300 ease-in-out hidden md:flex flex-col justify-between overflow-hidden relative z-20 shrink-0`}
+      <aside
+        className={`${isSidebarOpen ? 'w-64 border-r border-[#212121]' : 'w-0 border-r-0'
+          } bg-[#171717] transition-all duration-300 ease-in-out hidden md:flex flex-col justify-between overflow-hidden relative z-20 shrink-0`}
       >
         <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
-          
+
           {/* Topo da Sidebar */}
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <div className="flex items-center gap-2">
@@ -426,9 +425,8 @@ export default function ChatPage() {
               <div
                 key={session.id}
                 onClick={() => handleSelectSession(session.id)}
-                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${
-                  activeSessionId === session.id ? 'bg-[#212121] text-white font-medium' : 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white'
-                }`}
+                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id ? 'bg-[#212121] text-white font-medium' : 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white'
+                  }`}
               >
                 <span className="truncate pr-4">{session.title}</span>
                 <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
@@ -569,12 +567,17 @@ export default function ChatPage() {
           <form onSubmit={handleSend} className="relative bg-[#212121] rounded-3xl px-4 py-3 border border-white/5 focus-within:border-white/20 transition-all flex items-center gap-2">
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   if (input.trim() && !loading && isConnected) {
                     handleSend(e as any);
+                    e.currentTarget.style.height = 'auto'; // Reseta a altura após enviar
                   }
                 }
               }}
