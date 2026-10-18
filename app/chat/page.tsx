@@ -502,7 +502,7 @@ export default function ChatPage() {
           <div className="flex items-center gap-3">
             <a
               href="mailto:jefersonpollastri@gmail.com"
-              className="flex items-center gap-2 bg-[#212121] hover:bg-[#2f2f2f] text-white px-3 py-1.5 rounded-full text-xs font-medium transition border border-white/5"
+              className="flex items-center gap-2 bg-[#0000FF] hover:bg-[#2f2f2f] text-white px-3 py-1.5 rounded-full text-xs font-medium transition border border-white/5"
             >
               <span>Período Experimental (7 dias)</span>
             </a>
@@ -557,7 +557,7 @@ export default function ChatPage() {
           {loading && (
             <div className="flex gap-2 items-center text-[#8e8e8e] p-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs">Analisando dados do SGBD...</span>
+              <span className="text-xs">Estou pensando...</span>
             </div>
           )}
         </div>
