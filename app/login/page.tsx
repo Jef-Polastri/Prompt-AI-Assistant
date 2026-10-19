@@ -62,7 +62,7 @@ export default function LoginPage() {
               <img 
                 src="/logos/bots.png" 
                 alt="Mascote Piti" 
-                className="w-7 h-7 object-contain animate-pulse"
+                className="w-12 h-12 object-contain animate-pulse"
               />
             </div>
             <div>
