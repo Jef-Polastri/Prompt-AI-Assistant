@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Send, ChevronDown, Loader2, Settings2, LogOut, MessageSquare, Plus, Copy, Check, Trash2, Database } from 'lucide-react';
+import {
+  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
+  Trash2, Database, PanelLeftClose, PanelLeft
+} from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
 
@@ -16,21 +19,20 @@ interface ChatSession {
   created_at: string;
 }
 
-// 1. Função auxiliar para verificar se o teste de 7 dias expirou
+// Função auxiliar para verificar os 7 dias de trial
 const checkTrialExpired = (createdAtString: string) => {
   if (!createdAtString) return false;
-  
   const createdAt = new Date(createdAtString);
   const now = new Date();
-  
-  // Diferença em milissegundos convertida para dias
   const diffTime = now.getTime() - createdAt.getTime();
   const diffDays = diffTime / (1000 * 60 * 60 * 24);
-  
-  return diffDays > 7; // Retorna true se passou de 7 dias
+  return diffDays > 7;
 };
 
 export default function ChatPage() {
+  // Estado da Sidebar Retrátil
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -45,15 +47,13 @@ export default function ChatPage() {
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  // Estado para controlar se o período de teste expirou
   const [isTrialExpired, setIsTrialExpired] = useState(false);
 
   // Estados do Histórico e Sessão
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Estados para gerenciar a conexão dinâmica com o banco do cliente
+  // Estados da Conexão com o Banco
   const [dbType, setDbType] = useState('postgres');
   const [dbConfig, setDbConfig] = useState({
     host: 'localhost',
@@ -66,7 +66,7 @@ export default function ChatPage() {
   const [connecting, setConnecting] = useState(false);
   const [activeConnection, setActiveConnection] = useState<any>(null);
 
-  // Buscar dados do usuário logado ao carregar a página
+  // Autenticação e Sessão Supabase
   useEffect(() => {
     async function checkUser() {
       try {
@@ -78,13 +78,9 @@ export default function ChatPage() {
         }
 
         setUser(session.user);
-        
-        // Avalia se o período de 7 dias expirou com base na data de criação do usuário no Supabase
         if (session.user?.created_at) {
-          const expired = checkTrialExpired(session.user.created_at);
-          setIsTrialExpired(expired);
+          setIsTrialExpired(checkTrialExpired(session.user.created_at));
         }
-
         loadSessions(session.user.id);
       } catch (err) {
         window.location.href = '/login';
@@ -101,8 +97,7 @@ export default function ChatPage() {
       } else {
         setUser(session.user);
         if (session.user?.created_at) {
-          const expired = checkTrialExpired(session.user.created_at);
-          setIsTrialExpired(expired);
+          setIsTrialExpired(checkTrialExpired(session.user.created_at));
         }
         loadSessions(session.user.id);
       }
@@ -113,7 +108,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Carregar lista de sessões de chat do usuário
   const loadSessions = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -130,7 +124,6 @@ export default function ChatPage() {
     }
   };
 
-  // Carregar mensagens de uma sessão específica ao clicar no histórico
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoading(true);
@@ -152,7 +145,6 @@ export default function ChatPage() {
     }
   };
 
-  // Iniciar uma nova conversa limpa
   const handleNewChat = () => {
     setActiveSessionId(null);
     setMessages([
@@ -165,31 +157,22 @@ export default function ChatPage() {
 
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-
     try {
-      const { error } = await supabase
-        .from('chat_sessions')
-        .delete()
-        .eq('id', sessionId);
-
+      const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
       if (!error) {
         setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        if (activeSessionId === sessionId) {
-          handleNewChat();
-        }
+        if (activeSessionId === sessionId) handleNewChat();
       }
     } catch (err) {
       console.error('Erro ao excluir chat:', err);
     }
   };
 
-  // Função de Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
 
-  // Função para testar/salvar a conexão com o banco
   const handleConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTrialExpired) return;
@@ -211,7 +194,7 @@ export default function ChatPage() {
         setActiveConnection(currentConnectionData);
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: `✅ Conexão estabelecida com sucesso ao banco **${dbType.toUpperCase()}** (${dbConfig.database})! Já pode fazer suas perguntas.` }
+          { role: 'assistant', content: `✅ Conexão estabelecida com sucesso ao banco **${dbType.toUpperCase()}** (${dbConfig.database})!` }
         ]);
       } else {
         alert(`Erro ao conectar: ${data.error}`);
@@ -240,13 +223,7 @@ export default function ChatPage() {
 
         const { data: newSession, error: sessionErr } = await supabase
           .from('chat_sessions')
-          .insert([
-            {
-              user_id: user.id,
-              title: titleSnippet,
-              database_connection_id: dbType
-            }
-          ])
+          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
           .select()
           .single();
 
@@ -266,12 +243,7 @@ export default function ChatPage() {
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: userMessage,
-          dbType,
-          dbConfig,
-          activeConnection
-        })
+        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
       });
 
       const data = await response.json();
@@ -284,30 +256,12 @@ export default function ChatPage() {
       }
 
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
-
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Erro de conexão com o servidor backend do agente.' }
-      ]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Erro de conexão com o servidor backend do agente.' }]);
     } finally {
       setLoading(false);
     }
   };
-
-  if (loadingSession) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#131314] text-white">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-          <p className="text-xs text-slate-400 font-medium">Carregando ambiente seguro...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const userEmail = user?.email || 'utilizador@sonar.ai';
-  const userInitial = userEmail.charAt(0).toUpperCase();
 
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -315,55 +269,76 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  if (loadingSession) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-[#000000] text-white">
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+      </div>
+    );
+  }
+
+  const userEmail = user?.email || 'utilizador@sonar.ai';
+
   return (
-    <div className="flex h-screen bg-[#131314] text-slate-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#000000] text-[#ececec] font-sans overflow-hidden select-none">
 
-      {/* Sidebar estilo Gemini Dark */}
-      <aside className="w-72 border-r border-[#2d2f31] bg-[#1e1f20] p-3 hidden md:flex flex-col justify-between overflow-y-auto">
-        <div className="flex-1 flex flex-col min-h-0 space-y-3">
+      {/* Sidebar Retrátil Estilo ChatGPT */}
+      <aside
+        className={`${isSidebarOpen ? 'w-64 border-r border-[#212121]' : 'w-0 border-r-0'
+          } bg-[#171717] transition-all duration-300 ease-in-out hidden md:flex flex-col justify-between overflow-hidden relative z-20 shrink-0`}
+      >
+        <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
 
-          {/* Logo e Nome */}
-          <div className="flex items-center px-2 py-2 shrink-0">
-            <img
-              src="/logos/LogoPrompt.png"
-              alt="Logo"
-              className="w-10 h-10 object-contain gap-2"
-            />
-            <span className="font-mono font-light text-lg tracking-tight text-white">prompt</span>
+          {/* Topo da Sidebar */}
+          <div className="flex items-center justify-between px-1 py-1 shrink-0">
+            <div className="flex items-center gap-2">
+              <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />
+              <span className="font-mono font-medium text-base text-white tracking-tight">prompt</span>
+            </div>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1.5 text-[#8e8e8e] hover:text-white hover:bg-[#212121] rounded-lg transition cursor-pointer"
+              title="Ocultar barra lateral"
+            >
+              <PanelLeftClose className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Seção Dropdown do Onboarding do Banco */}
-          <div className="bg-[#131314] rounded-2xl border border-[#2d2f31] overflow-hidden transition-all duration-200 shrink-0">
+          {/* Botão Novo Chat */}
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-white hover:bg-[#212121] transition cursor-pointer border border-white/5"
+          >
+            <div className="flex items-center gap-2.5">
+              <Plus className="w-4 h-4 text-[#8e8e8e]" />
+              <span>Novo chat</span>
+            </div>
+          </button>
+
+          {/* Dropdown de Conexão do Banco */}
+          <div className="bg-[#212121]/50 rounded-xl border border-white/5 overflow-hidden transition-all duration-200 shrink-0 mt-2">
             <button
               onClick={() => setIsDbMenuOpen(!isDbMenuOpen)}
-              className="w-full flex items-center justify-between p-3 text-left hover:bg-[#282a2c] transition cursor-pointer"
+              className="w-full flex items-center justify-between p-2.5 text-left hover:bg-[#212121] transition cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-slate-300" />
-                <span className="text-xs font-semibold text-slate-200 tracking-wider">
-                  Conexão do Banco
-                </span>
+                <Database className="w-4 h-4 text-[#8e8e8e]" />
+                <span className="text-xs font-medium text-[#c5c5c5]">Conexão do Banco</span>
               </div>
-
               <div className="flex items-center gap-2">
-                {isConnected && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conectado" />
-                )}
-                <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isDbMenuOpen ? 'rotate-180' : ''}`}
-                />
+                {isConnected && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                <ChevronDown className={`w-3.5 h-3.5 text-[#8e8e8e] transition-transform ${isDbMenuOpen ? 'rotate-180' : ''}`} />
               </div>
             </button>
 
-            {/* Conteúdo Retrátil */}
             {isDbMenuOpen && (
-              <form onSubmit={handleConnectDb} className="p-3 pt-0 space-y-3 border-t border-[#2d2f31] mt-1">
-                <div className="pt-2">
-                  <label className="text-[11px] text-slate-400 block mb-1">Tipo de SGBD</label>
+              <form onSubmit={handleConnectDb} className="p-3 pt-1 space-y-2 border-t border-white/5 mt-1">
+                <div>
+                  <label className="text-[10px] text-[#8e8e8e] block mb-1">SGBD</label>
                   <select
                     value={dbType}
                     onChange={(e) => setDbType(e.target.value)}
-                    className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                   >
                     <option value="postgres">PostgreSQL / Supabase</option>
                     <option value="mysql">MySQL</option>
@@ -372,61 +347,61 @@ export default function ChatPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   <div className="col-span-2">
-                    <label className="text-[11px] text-slate-400 block mb-1">Host</label>
+                    <label className="text-[10px] text-[#8e8e8e] block mb-1">Host</label>
                     <input
                       type="text"
                       value={dbConfig.host}
                       onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
-                      className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                       required
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">Porta</label>
+                    <label className="text-[10px] text-[#8e8e8e] block mb-1">Porta</label>
                     <input
                       type="text"
                       value={dbConfig.port}
                       onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
-                      className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-slate-400 block mb-1">Nome do Banco / Schema</label>
+                  <label className="text-[10px] text-[#8e8e8e] block mb-1">Nome do Banco / Schema</label>
                   <input
                     type="text"
                     value={dbConfig.database}
                     onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
                     placeholder="ex: empresa_db"
-                    className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-slate-400 block mb-1">Usuário</label>
+                  <label className="text-[10px] text-[#8e8e8e] block mb-1">Usuário</label>
                   <input
                     type="text"
                     value={dbConfig.user}
                     onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
                     placeholder="postgres"
-                    className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-slate-400 block mb-1">Senha</label>
+                  <label className="text-[10px] text-[#8e8e8e] block mb-1">Senha</label>
                   <input
                     type="password"
                     value={dbConfig.password}
                     onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full bg-[#1e1f20] border border-[#3c3f42] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-400"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                     required
                   />
                 </div>
@@ -434,254 +409,162 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={connecting || isTrialExpired}
-                  className="w-full bg-white hover:bg-slate-200 text-xs font-medium text-slate-900 py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 mt-2 shadow-sm disabled:opacity-50"
+                  className="w-full bg-[#2f2f2f] hover:bg-[#383838] text-xs font-medium text-white py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2"
                 >
-                  {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-900" />}
-                  {isConnected ? 'Reconectar / Atualizar' : 'Testar & Conectar Banco'}
+                  {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {isConnected ? 'Reconectar' : 'Conectar SGBD'}
                 </button>
               </form>
             )}
           </div>
 
-          {/* Divisor */}
-          <div className="border-t border-[#2d2f31] my-2" />
-
-          {/* SEÇÃO DE ÚLTIMOS PROMPTS / HISTÓRICO */}
-          <div className="flex-1 flex flex-col min-h-0 space-y-2 overflow-hidden">
-            <div className="flex items-center justify-between px-2">
-              <span className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
-                Últimos Prompts
-              </span>
-              <button
-                onClick={handleNewChat}
-                title="Nova Consulta"
-                className="p-1.5 hover:bg-[#282a2c] rounded-xl text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1 text-[11px]"
+          {/* Histórico */}
+          <div className="flex-1 overflow-y-auto space-y-1 pt-2 pr-1">
+            <p className="px-2 py-1 text-[11px] font-semibold text-[#676767]">Consultas Anteriores</p>
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                onClick={() => handleSelectSession(session.id)}
+                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id ? 'bg-[#212121] text-white font-medium' : 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white'
+                  }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Novo chat</span>
-              </button>
-            </div>
-
-            {/* Lista de sessões com rolagem */}
-            <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-              {sessions.length === 0 ? (
-                <p className="px-2 py-2 text-xs text-slate-600 font-mono">
-                  Nenhuma consulta recente.
-                </p>
-              ) : (
-                sessions.map((session) => (
-                  <div
-                    key={session.id}
-                    onClick={() => handleSelectSession(session.id)}
-                    className={`group relative flex items-center justify-between px-3 py-2 text-xs rounded-xl transition cursor-pointer ${activeSessionId === session.id
-                      ? 'bg-[#282a2c] text-white font-medium'
-                      : 'text-slate-400 hover:bg-[#282a2c]/60 hover:text-slate-200'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate pr-6">
-                      <MessageSquare className="w-3.5 h-3.5 shrink-0 text-slate-500" />
-                      <span className="truncate">{session.title}</span>
-                    </div>
-
-                    <button
-                      onClick={(e) => handleDeleteSession(session.id, e)}
-                      className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition-all"
-                      title="Excluir chat"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
+                <span className="truncate pr-4">{session.title}</span>
+                <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
 
         </div>
 
-        {/* Rodapé: Perfil do Usuário Logado & Menu de Logout */}
-        <div className="relative border-t border-[#2d2f31] pt-3 shrink-0">
-
-          {/* Menu Flutuante de Logout */}
+        {/* Rodapé / Perfil */}
+        <div className="p-3 border-t border-white/5 relative">
           {isUserMenuOpen && (
-            <div className="absolute bottom-full left-0 w-full mb-2 bg-[#282a2c] border border-[#3c3f42] rounded-2xl p-1.5 shadow-lg z-50">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-white hover:bg-[#35383b] rounded-xl transition cursor-pointer font-medium"
-              >
-                <LogOut className="w-4 h-4 text-white" />
-                <span className="text-white">Terminar Sessão (Logout)</span>
+            <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#212121] border border-white/10 rounded-xl p-1.5 shadow-xl z-50">
+              <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white hover:bg-[#2f2f2f] rounded-lg transition">
+                <LogOut className="w-4 h-4 text-red-400" />
+                <span>Terminar Sessão</span>
               </button>
             </div>
           )}
-
-          {/* Botão do Perfil */}
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="w-full flex items-center justify-between p-2 rounded-2xl hover:bg-[#282a2c] transition cursor-pointer text-left"
+            className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#212121] transition cursor-pointer text-left"
           >
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                {userInitial}
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="w-7 h-7 rounded-full bg-[#383838] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                {userEmail.charAt(0).toUpperCase()}
               </div>
-              <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-slate-200 truncate">{userEmail}</p>
-                <p className="text-[10px] text-slate-400">Conectado via Supabase</p>
-              </div>
+              <span className="text-xs font-medium text-white truncate">{userEmail}</span>
             </div>
-            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className="w-4 h-4 text-[#8e8e8e]" />
           </button>
         </div>
-
       </aside>
 
-      {/* Janela Principal do Chat */}
-      <main className="relative flex-1 flex flex-col h-full overflow-hidden bg-[#131314]">
+      {/* Main Content */}
+      <main className="relative flex-1 flex flex-col h-full overflow-hidden bg-[#000000]">
 
-        {/* 2. MODAL DE BLOQUEIO / FIM DO PERÍODO DE TESTE (Aparece se passar de 7 dias) */}
+        {/* Modal de Bloqueio por Teste Expirado */}
         {isTrialExpired && (
-          <div className="absolute inset-0 z-50 bg-[#131314]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-            <div className="max-w-md bg-[#1e1f20] border border-neutral-800 p-8 rounded-2xl shadow-2xl space-y-4">
-              <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-                ⏳
-              </div>
-              <h2 className="text-xl font-semibold text-slate-100 font-sans">
-                Seu período de teste de 7 dias encerrou
-              </h2>
-              <p className="text-sm text-slate-400 leading-relaxed font-sans">
-                Esperamos que tenha aproveitado os insights do seu banco de dados! Para continuar utilizando a plataforma e liberar consultas ilimitadas, entre em contato com nossa equipe.
-              </p>
-              <div className="pt-2">
-                <a
-                  href="mailto:jefersonpollastri@gmail.com?subject=Renovacao%20de%20Acesso%20-%20SaaS"
-                  className="inline-block w-full py-2.5 px-4 bg-white text-black hover:bg-neutral-200 font-medium text-sm rounded-xl transition-all shadow-md text-center"
-                >
-                  Entrar em Contato com a Empresa
-                </a>
-              </div>
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+            <div className="max-w-md bg-[#171717] border border-white/10 p-8 rounded-2xl shadow-2xl space-y-4">
+              <h2 className="text-xl font-semibold text-white">Seu período de teste encerrou</h2>
+              <p className="text-sm text-[#b4b4b4]">Para continuar utilizando a plataforma, entre em contato com nossa equipe comercial.</p>
+              <a
+                href="mailto:jefersonpollastri@gmail.com?subject=Renovacao%20de%20Acesso"
+                className="inline-block w-full py-2.5 bg-white text-black hover:bg-[#e2e2e2] font-medium text-sm rounded-xl transition text-center"
+              >
+                Fazer Upgrade
+              </a>
             </div>
           </div>
         )}
 
         {/* Header Superior */}
-        <header className="h-14 border-b border-[#2d2f31] bg-[#131314] px-6 flex items-center justify-between shrink-0">
+        <header className="h-14 border-b border-[#212121] bg-[#000000] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <h1 className="font-medium text-sm text-slate-200">Chat</h1>
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-1.5 text-[#8e8e8e] hover:text-white hover:bg-[#212121] rounded-lg transition cursor-pointer"
+                title="Mostrar barra lateral"
+              >
+                <PanelLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 font-medium text-base text-white px-2 py-1">
+              <span>Prompt BI Agent</span>
+            </div>
           </div>
-    {/* Badge estilo "Upgrade" do Gemini com a sua Logo */}
-    <a
-      href="mailto:jefersonpollastri@gmail.com?subject=Upgrade%20de%20Plano%20-%20SaaS"
-      className="flex items-center gap-2 bg-[#2563eb]/20 hover:bg-[#2563eb]/30 border border-[#2563eb]/40 text-blue-300 px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer shadow-sm"
-      title="Período experimental ativo"
-    >
-      {/*<img
-        src="/logos/LogoPrompt.png"
-        alt="Logo"
-        className="w-6 h-6 object-contain"
-      />*/}
-      <span>
-        {isTrialExpired ? 'Teste Expirado (Fazer Upgrade)' : 'Período Experimental (7 dias)'}
-      </span>
-    </a>
-          <span className="text-xs bg-[#1e1f20] text-slate-300 border border-[#2d2f31] px-3 py-1 rounded-full font-medium">
-            {isConnected ? `Conectado (${dbType.toUpperCase()})` : 'Aguardando Conexão'}
-          </span>
+
+          <div className="flex items-center gap-3">
+            <a
+              href="mailto:jefersonpollastri@gmail.com"
+              className="flex items-center gap-2 bg-[#0000FF] hover:bg-[#00008A] text-white px-3 py-1.5 rounded-full text-xs font-medium transition border border-white/5"
+            >
+              <span>Período Experimental (7 dias)</span>
+            </a>
+          </div>
         </header>
 
         {/* Histórico de Mensagens */}
-        <div className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
+        <div className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans max-w-3xl w-full mx-auto ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
           {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`flex gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`p-4 rounded-2xl text-[16px] leading-relaxed ${msg.role === 'user'
-                  ? 'bg-[#282a2c] text-slate-100 rounded-br-none shadow-sm'
-                  : 'bg-transparent text-slate-200 w-full'
-                  }`}
-              >
-                {msg.role === 'user' ? (
-                  msg.content
-                ) : (
-                  <div className="relative group/msg w-full">
-                    <div className="absolute top-0 right-0 z-10">
-                      <button
-                        onClick={() => handleCopy(msg.content, index)}
-                        className="opacity-0 group-hover/msg:opacity-100 flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-[#1e1f20]/90 hover:bg-neutral-800 p-2 rounded-lg transition-all border border-neutral-700/50 cursor-pointer shadow-md"
-                        title="Copiar resposta"
-                      >
-                        {copiedIndex === index ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-green-400" />
-                            <span className="text-green-400 font-sans text-[11px]">Copiado!</span>
-                          </>
+            <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+              {msg.role === 'user' ? (
+                <div className="bg-[#212121] text-[#ececec] px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm">
+                  {msg.content}
+                </div>
+              ) : (
+                <div className="w-full text-[#ececec] text-sm leading-relaxed space-y-3 pt-2">
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-4 text-[#ececec] leading-relaxed text-[15px]">{children}</p>,
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <div className="my-4 overflow-hidden rounded-xl bg-[#171717] border border-white/10">
+                            <div className="bg-[#212121] px-4 py-2 text-[11px] text-[#8e8e8e] font-mono uppercase flex justify-between items-center">
+                              <span>{match[1]}</span>
+                            </div>
+                            <pre className="p-4 overflow-x-auto text-xs text-[#ececec] font-mono leading-relaxed">
+                              <code>{String(children).replace(/\n$/, '')}</code>
+                            </pre>
+                          </div>
                         ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                    <div className="relative group">
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => (
-                            <p className="mb-5 text-[16px] leading-relaxed text-slate-200">{children}</p>
-                          ),
-                          hr: () => null,
-                          ul: ({ children }) => (
-                            <div className="space-y-3 mb-5 text-[16px]">{children}</div>
-                          ),
-                          li: ({ children }) => (
-                            <div className="leading-relaxed text-[16px] text-slate-200">{children}</div>
-                          ),
-                          code({ node, inline, className, children, ...props }: any) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <div className="my-6 overflow-hidden rounded-xl bg-[#1e1e1e] border border-neutral-800 shadow-sm">
-                                <div className="bg-[#2d2d2d] px-4 py-2 text-[10px] text-neutral-400 font-mono uppercase tracking-wider border-b border-neutral-800 flex justify-between items-center">
-                                  <span>{match[1]}</span>
-                                </div>
-                                <pre className="p-4 overflow-x-auto text-xs text-slate-200 font-mono leading-relaxed">
-                                  <code>{String(children).replace(/\n$/, '')}</code>
-                                </pre>
-                              </div>
-                            ) : (
-                              <code className={`${className} bg-neutral-800 text-amber-300 px-1.5 py-0.5 rounded text-xs`} {...props}>
-                                {children}
-                              </code>
-                            );
-                          }
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                )}
-              </div>
+                          <code className="bg-[#212121] text-amber-200 px-1.5 py-0.5 rounded text-xs" {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
 
-              {msg.role === 'user' && (
-                <div className="w-10 h-10 rounded-full bg-[#282a2c] flex items-center justify-center text-slate-300 shrink-0 mt-1 font-medium text-[16px] font-sans">
-                  EU
+                  <div className="flex items-center gap-2 pt-1 text-[#8e8e8e]">
+                    <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-white rounded transition" title="Copiar">
+                      {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           ))}
 
           {loading && (
-            <div className="flex gap-4 max-w-3xl mx-auto justify-start">
-              <div className="flex items-center space-x-1.5 w-fit p-4">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.2s]"></span>
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s] [animation-delay:-0.1s]"></span>
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-duration:0.6s]"></span>
-              </div>
+            <div className="flex gap-2 items-center text-[#8e8e8e] p-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-xs">Estou pensando...</span>
             </div>
           )}
         </div>
 
         {/* Barra de Input Inferior */}
-        <div className={`p-4 md:p-6 bg-[#131314] shrink-0 ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
-          <form onSubmit={handleSend} className="max-w-3xl mx-auto relative bg-[#1e1f20] rounded-3xl px-4 py-3 border border-[#2d2f31]/50">
+        <div className={`p-4 bg-[#000000] shrink-0 w-full max-w-3xl mx-auto ${isTrialExpired ? 'pointer-events-none opacity-40 select-none' : ''}`}>
+          <form onSubmit={handleSend} className="relative bg-[#212121] rounded-3xl px-4 py-3 border border-white/5 focus-within:border-white/20 transition-all flex items-center gap-2">
             <textarea
               value={input}
               onChange={(e) => {
@@ -692,35 +575,32 @@ export default function ChatPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
+                  if (input.trim() && !loading && isConnected) {
                     handleSend(e as any);
-                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = 'auto'; // Reseta a altura após enviar
                   }
                 }
               }}
               placeholder={isConnected ? "Faça uma pergunta sobre os dados..." : "Conecte um banco de dados na barra lateral primeiro..."}
-              disabled={!isConnected || isTrialExpired}
+              disabled={!isConnected}
               rows={1}
-              className="w-full bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none resize-none max-h-36 pr-12 pt-1 disabled:opacity-50"
+              className="w-full bg-transparent text-sm text-white placeholder-[#8e8e8e] focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50"
             />
 
-            <div className="absolute right-3 bottom-2.5">
-              <button
-                type="submit"
-                disabled={loading || !input.trim() || !isConnected || isTrialExpired}
-                className="bg-white hover:bg-slate-200 text-slate-900 disabled:opacity-30 p-2 rounded-3xl transition flex items-center justify-center shadow-sm cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading || !input.trim() || !isConnected}
+              className="bg-white hover:bg-[#e2e2e2] text-black disabled:opacity-20 p-2 rounded-full transition cursor-pointer shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
           </form>
 
-          <div className="max-w-3xl mx-auto px-4 mt-2">
-            <p className="text-[11px] text-slate-500 text-center">
-              O agente utiliza conectores dinâmicos para ler e traduzir dados do SGBD selecionado.
-            </p>
-          </div>
+          <p className="text-[11px] text-[#676767] text-center mt-2.5">
+            O Prompt pode cometer erros. Verifique informações importantes no banco de dados.
+          </p>
         </div>
+
       </main>
     </div>
   );
