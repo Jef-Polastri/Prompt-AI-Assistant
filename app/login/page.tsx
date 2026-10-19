@@ -60,7 +60,7 @@ export default function LoginPage() {
             <div className="w-12 h-12 rounded-full bg-[#171717] border border-white/10 flex items-center justify-center shrink-0">
               {/* Você pode trocar a imagem abaixo pela logo/avatar do Piti quando tiver */}
               <img 
-                src="/logos/LogoPrompt.png" 
+                src="/logos/bots.png" 
                 alt="Mascote Piti" 
                 className="w-7 h-7 object-contain animate-pulse"
               />
