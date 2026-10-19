@@ -56,9 +56,9 @@ export default function LoginPage() {
           </p>
 
           {/* CARD DO MASCOTE PITI 🤖 */}
-          <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#212121]/60 border border-white/10 shadow-lg">
+          {/*<div className="flex items-center gap-4 p-4 rounded-2xl bg-[#212121]/60 border border-white/10 shadow-lg">
             <div className="w-12 h-12 rounded-full bg-[#171717] border border-white/10 flex items-center justify-center shrink-0">
-              {/* Você pode trocar a imagem abaixo pela logo/avatar do Piti quando tiver */}
+              {/* Você pode trocar a imagem abaixo pela logo/avatar do Piti quando tiver 
               <img 
                 src="/logos/bots.png" 
                 alt="Mascote Piti" 
@@ -71,7 +71,7 @@ export default function LoginPage() {
                 Estou pronto para ajudar você a explorar o seu banco de dados em segundos.
               </p>
             </div>
-          </div>
+          </div>*/}
 
           {/* Cartões de Recursos (Estilo OpenAI Dark) */}
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#212121]">
