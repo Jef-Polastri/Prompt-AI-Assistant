@@ -48,8 +48,11 @@ export default function LoginPage() {
           </div>
           
           <h1 className="text-4xl font-semibold tracking-tight text-white leading-tight">
-            Converse diretamente com os <span className="text-[#8e8e8e]">dados da sua empresa</span>.
-          </h1>
+  Converse diretamente com os{' '}
+  <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 font-bold drop-shadow-[0_0_12px_rgba(168,85,247,0.4)]">
+    dados da sua empresa
+  </span>.
+</h1>
           
           <p className="text-[#8e8e8e] text-sm leading-relaxed">
             Esqueça consultas SQL complexas. O <strong className="text-white font-medium">Prompt</strong> conecta-se de forma segura aos bancos corporativos e traduz linguagem natural em respostas claras.
