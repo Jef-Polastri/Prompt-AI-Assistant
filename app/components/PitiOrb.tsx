@@ -43,7 +43,7 @@ export default function PitiOrb({ isThinking = false }: PitiOrbProps) {
           
           {/* Ícone/Mascote Central Suave */}
           <span className="relative z-10 text-2xl font-mono text-white/80 tracking-tighter font-bold drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
-            prompt
+            
           </span>
         </div>
       </div>
