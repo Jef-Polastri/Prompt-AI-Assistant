@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { 
   Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check, 
-  Trash2, Database, PanelLeftClose, PanelLeft, Menu, X 
+  Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle 
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
@@ -32,7 +32,7 @@ const checkTrialExpired = (createdAtString: string) => {
 export default function ChatPage() {
   // Estados de Controle de Layout (Desktop & Mobile)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // NOVO: Gaveta mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -103,7 +103,7 @@ export default function ChatPage() {
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoading(true);
-    setIsMobileMenuOpen(false); // Fecha o menu no mobile ao selecionar
+    setIsMobileMenuOpen(false);
     try {
       const { data } = await supabase
         .from('chat_messages')
@@ -235,7 +235,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-[#000000] text-[#ececec] font-sans overflow-hidden select-none relative">
 
-      {/* 📱 BACKDROP MOBILE (Fundo escuro quando a gaveta mobile estiver aberta) */}
+      {/* 📱 BACKDROP MOBILE */}
       {isMobileMenuOpen && (
         <div 
           onClick={() => setIsMobileMenuOpen(false)}
@@ -243,7 +243,7 @@ export default function ChatPage() {
         />
       )}
 
-      {/* SIDEBAR (Responsiva: Drawer no Mobile / Retrátil no Desktop) */}
+      {/* SIDEBAR */}
       <aside 
         className={`
           fixed md:relative inset-y-0 left-0 z-40
@@ -261,7 +261,6 @@ export default function ChatPage() {
               <span className="font-mono font-medium text-base text-white tracking-tight">prompt</span>
             </div>
             
-            {/* Botão de Fechar (Mobile ou Desktop) */}
             <button
               onClick={() => {
                 setIsSidebarOpen(false);
@@ -277,7 +276,8 @@ export default function ChatPage() {
           {/* Botão Novo Chat */}
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-white hover:bg-[#212121] transition cursor-pointer border border-white/5"
+            disabled={isTrialExpired}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-white hover:bg-[#212121] transition cursor-pointer border border-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-2.5">
               <Plus className="w-4 h-4 text-[#8e8e8e]" />
@@ -307,8 +307,9 @@ export default function ChatPage() {
                   <label className="text-[10px] text-[#8e8e8e] block mb-1">SGBD</label>
                   <select
                     value={dbType}
+                    disabled={isTrialExpired}
                     onChange={(e) => setDbType(e.target.value)}
-                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                   >
                     <option value="postgres">PostgreSQL / Supabase</option>
                     <option value="mysql">MySQL</option>
@@ -322,9 +323,10 @@ export default function ChatPage() {
                     <label className="text-[10px] text-[#8e8e8e] block mb-1">Host</label>
                     <input
                       type="text"
+                      disabled={isTrialExpired}
                       value={dbConfig.host}
                       onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
-                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                       required
                     />
                   </div>
@@ -332,9 +334,10 @@ export default function ChatPage() {
                     <label className="text-[10px] text-[#8e8e8e] block mb-1">Porta</label>
                     <input
                       type="text"
+                      disabled={isTrialExpired}
                       value={dbConfig.port}
                       onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
-                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                       required
                     />
                   </div>
@@ -344,10 +347,11 @@ export default function ChatPage() {
                   <label className="text-[10px] text-[#8e8e8e] block mb-1">Nome do Banco</label>
                   <input
                     type="text"
+                    disabled={isTrialExpired}
                     value={dbConfig.database}
                     onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
                     placeholder="ex: empresa_db"
-                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                     required
                   />
                 </div>
@@ -356,10 +360,11 @@ export default function ChatPage() {
                   <label className="text-[10px] text-[#8e8e8e] block mb-1">Usuário</label>
                   <input
                     type="text"
+                    disabled={isTrialExpired}
                     value={dbConfig.user}
                     onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
                     placeholder="postgres"
-                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                     required
                   />
                 </div>
@@ -368,10 +373,11 @@ export default function ChatPage() {
                   <label className="text-[10px] text-[#8e8e8e] block mb-1">Senha</label>
                   <input
                     type="password"
+                    disabled={isTrialExpired}
                     value={dbConfig.password}
                     onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    className="w-full bg-[#171717] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none disabled:opacity-50"
                     required
                   />
                 </div>
@@ -379,7 +385,7 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={connecting || isTrialExpired}
-                  className="w-full bg-[#2f2f2f] hover:bg-[#383838] text-xs font-medium text-white py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2"
+                  className="w-full bg-[#2f2f2f] hover:bg-[#383838] text-xs font-medium text-white py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {isConnected ? 'Reconectar' : 'Conectar SGBD'}
@@ -437,10 +443,9 @@ export default function ChatPage() {
       {/* MAIN CONTENT */}
       <main className="relative flex-1 flex flex-col h-full overflow-hidden bg-[#000000]">
 
-        {/* Header Superior (Com botão Hambúrguer para Mobile) */}
+        {/* Header Superior */}
         <header className="h-14 border-b border-[#212121] bg-[#000000] px-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            {/* Botão Hambúrguer Mobile */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-1.5 text-[#8e8e8e] hover:text-white hover:bg-[#212121] rounded-lg transition md:hidden cursor-pointer"
@@ -449,7 +454,6 @@ export default function ChatPage() {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Botão Expandir Sidebar Desktop */}
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
@@ -466,8 +470,12 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-block bg-[#212121] text-white px-3 py-1.5 rounded-full text-xs font-medium border border-white/5">
-              Trial (7 dias)
+            <span className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border ${
+              isTrialExpired 
+                ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                : 'bg-[#212121] text-white border-white/5'
+            }`}>
+              {isTrialExpired ? 'Trial Expirado' : 'Trial (7 dias)'}
             </span>
           </div>
         </header>
@@ -475,7 +483,6 @@ export default function ChatPage() {
         {/* Histórico de Mensagens / Esfera Central */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans max-w-3xl w-full mx-auto flex flex-col justify-center items-center">
           
-          {/* EXIBE A ESFERA E SUGESTÕES QUANDO O CHAT ESTIVER NO INÍCIO */}
           {messages.length <= 1 ? (
             <div className="flex flex-col items-center justify-center text-center space-y-3 py-8 my-auto w-full">
               
@@ -489,7 +496,7 @@ export default function ChatPage() {
                 Selecione uma das sugestões abaixo ou faça qualquer pergunta sobre vendas, estoque e clientes em linguagem natural.
               </p>
 
-              {/* Sugestões Rápidas do Piti */}
+              {/* Sugestões Rápidas do Piti com Trava de Trial */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
                 {[
                   "📈 Qual foi o faturamento total deste mês?",
@@ -499,8 +506,11 @@ export default function ChatPage() {
                 ].map((suggestion, idx) => (
                   <button
                     key={idx}
+                    disabled={isTrialExpired}
                     onClick={() => setInput(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
-                    className="text-left p-3 rounded-2xl bg-[#171717] hover:bg-[#212121] text-xs text-[#ececec] border border-white/5 transition cursor-pointer hover:border-white/20"
+                    className={`text-left p-3 rounded-2xl bg-[#171717] text-xs text-[#ececec] border border-white/5 transition cursor-pointer hover:border-white/20 ${
+                      isTrialExpired ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#212121]'
+                    }`}
                   >
                     {suggestion}
                   </button>
@@ -508,7 +518,6 @@ export default function ChatPage() {
               </div>
             </div>
           ) : (
-            // HISTÓRICO NORMAL DE MENSAGENS QUANDO A CONVERSA INICIAR
             <div className="w-full space-y-6">
               {messages.map((msg, index) => (
                 <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
@@ -566,6 +575,17 @@ export default function ChatPage() {
 
         {/* Input Inferior Dinâmico */}
         <div className="p-3 md:p-4 bg-[#000000] shrink-0 w-full max-w-3xl mx-auto">
+          
+          {/* BANNER DE ALERTA SE EXPIRADO */}
+          {isTrialExpired && (
+            <div className="p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-2 text-center">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <p className="text-xs text-red-400 font-medium">
+                Seu período de teste de 7 dias expirou. Faça upgrade para continuar consultando os dados.
+              </p>
+            </div>
+          )}
+
           <form onSubmit={handleSend} className="relative bg-[#212121] rounded-3xl px-4 py-3 border border-white/5 focus-within:border-white/20 transition-all flex items-center gap-2">
             <textarea
               value={input}
@@ -577,21 +597,27 @@ export default function ChatPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && isConnected) {
+                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
                     handleSend(e as any);
-                    e.currentTarget.style.height = 'auto'; // Reseta a altura após enviar
+                    e.currentTarget.style.height = 'auto';
                   }
                 }
               }}
-              placeholder={isConnected ? "Pergunte ao Piti sobre os dados..." : "Conecte o SGBD na barra lateral primeiro..."}
-              disabled={!isConnected}
+              placeholder={
+                isTrialExpired 
+                  ? "Seu período de avaliação de 7 dias expirou." 
+                  : isConnected 
+                    ? "Pergunte ao Piti sobre os dados..." 
+                    : "Conecte o SGBD na barra lateral primeiro..."
+              }
+              disabled={!isConnected || isTrialExpired}
               rows={1}
               className="w-full bg-transparent text-sm text-white placeholder-[#8e8e8e] focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50"
             />
 
             <button
               type="submit"
-              disabled={loading || !input.trim() || !isConnected}
+              disabled={loading || !input.trim() || !isConnected || isTrialExpired}
               className="bg-white hover:bg-[#e2e2e2] text-black disabled:opacity-20 p-2 rounded-full transition cursor-pointer shrink-0"
             >
               <Send className="w-4 h-4" />
