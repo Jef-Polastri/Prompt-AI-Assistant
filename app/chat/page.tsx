@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
+import PitiOrb from '../components/PitiOrb';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -471,57 +472,96 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {/* Histórico de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans max-w-3xl w-full mx-auto">
-          {messages.map((msg, index) => (
-            <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              {msg.role === 'user' ? (
-                <div className="bg-[#212121] text-[#ececec] px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm">
-                  {msg.content}
-                </div>
-              ) : (
-                <div className="w-full text-[#ececec] text-sm leading-relaxed space-y-3 pt-2">
-                  <ReactMarkdown
-                    components={{
-                      p: ({ children }) => <p className="mb-4 text-[#ececec] leading-relaxed text-[15px]">{children}</p>,
-                      code({ node, inline, className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline && match ? (
-                          <div className="my-4 overflow-hidden rounded-xl bg-[#171717] border border-white/10">
-                            <div className="bg-[#212121] px-4 py-2 text-[11px] text-[#8e8e8e] font-mono uppercase flex justify-between items-center">
-                              <span>{match[1]}</span>
-                            </div>
-                            <pre className="p-4 overflow-x-auto text-xs text-[#ececec] font-mono leading-relaxed">
-                              <code>{String(children).replace(/\n$/, '')}</code>
-                            </pre>
-                          </div>
-                        ) : (
-                          <code className="bg-[#212121] text-amber-200 px-1.5 py-0.5 rounded text-xs" {...props}>
-                            {children}
-                          </code>
-                        );
-                      }
-                    }}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
+        {/* Histórico de Mensagens / Esfera Central */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans max-w-3xl w-full mx-auto flex flex-col justify-center items-center">
+          
+          {/* EXIBE A ESFERA E SUGESTÕES QUANDO O CHAT ESTIVER NO INÍCIO */}
+          {messages.length <= 1 ? (
+            <div className="flex flex-col items-center justify-center text-center space-y-3 py-8 my-auto w-full">
+              
+              {/* Esfera Animada OpenAI Style */}
+              <PitiOrb isThinking={loading} />
 
-                  <div className="flex items-center gap-2 pt-1 text-[#8e8e8e]">
-                    <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-white rounded transition" title="Copiar">
-                      {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
+              <h3 className="text-xl font-semibold text-white tracking-tight">
+                Como posso ajudar com os seus dados hoje?
+              </h3>
+              <p className="text-xs text-[#8e8e8e] max-w-md">
+                Selecione uma das sugestões abaixo ou faça qualquer pergunta sobre vendas, estoque e clientes em linguagem natural.
+              </p>
+
+              {/* Sugestões Rápidas do Piti */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
+                {[
+                  "📈 Qual foi o faturamento total deste mês?",
+                  "📊 Liste os 5 produtos mais vendidos",
+                  "⚠️ Clientes sem compras há mais de 60 dias",
+                  "💵 Qual a média diária de vendas em 2026?"
+                ].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setInput(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
+                    className="text-left p-3 rounded-2xl bg-[#171717] hover:bg-[#212121] text-xs text-[#ececec] border border-white/5 transition cursor-pointer hover:border-white/20"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            // HISTÓRICO NORMAL DE MENSAGENS QUANDO A CONVERSA INICIAR
+            <div className="w-full space-y-6">
+              {messages.map((msg, index) => (
+                <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  {msg.role === 'user' ? (
+                    <div className="bg-[#212121] text-[#ececec] px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm">
+                      {msg.content}
+                    </div>
+                  ) : (
+                    <div className="w-full text-[#ececec] text-sm leading-relaxed space-y-3 pt-2">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-4 text-[#ececec] leading-relaxed text-[15px]">{children}</p>,
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <div className="my-4 overflow-hidden rounded-xl bg-[#171717] border border-white/10">
+                                <div className="bg-[#212121] px-4 py-2 text-[11px] text-[#8e8e8e] font-mono uppercase flex justify-between items-center">
+                                  <span>{match[1]}</span>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-[#ececec] font-mono leading-relaxed">
+                                  <code>{String(children).replace(/\n$/, '')}</code>
+                                </pre>
+                              </div>
+                            ) : (
+                              <code className="bg-[#212121] text-amber-200 px-1.5 py-0.5 rounded text-xs" {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+
+                      <div className="flex items-center gap-2 pt-1 text-[#8e8e8e]">
+                        <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-white rounded transition" title="Copiar">
+                          {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {loading && (
+                <div className="flex gap-2 items-center text-[#8e8e8e] p-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Piti está analisando os dados...</span>
                 </div>
               )}
             </div>
-          ))}
-
-          {loading && (
-            <div className="flex gap-2 items-center text-[#8e8e8e] p-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs">Piti está analisando os dados...</span>
-            </div>
           )}
+
         </div>
 
         {/* Input Inferior Dinâmico */}
