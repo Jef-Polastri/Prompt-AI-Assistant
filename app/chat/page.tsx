@@ -579,7 +579,7 @@ export default function ChatPage() {
                   e.preventDefault();
                   if (input.trim() && !loading && isConnected) {
                     handleSend(e as any);
-                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = 'auto'; // Reseta a altura após enviar
                   }
                 }
               }}
