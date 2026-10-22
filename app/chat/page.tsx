@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon
+  Settings, Sun, Moon, Mic, MicOff, Volume2
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
@@ -34,6 +34,7 @@ export default function ChatPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -223,6 +224,43 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  const handleSpeak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Your browser does not support voice recognition.');
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  };
+
   if (loadingSession) {
     return (
       <div className={`flex h-screen w-screen items-center justify-center ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
@@ -263,7 +301,6 @@ export default function ChatPage() {
 
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <div className="flex items-center gap-2">
-              {/* <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />*/}
               <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
                 Prompt
               </span>
@@ -631,7 +668,7 @@ export default function ChatPage() {
                           {msg.content}
                         </ReactMarkdown>
 
-                        <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                        <div className={`flex items-center gap-1 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button
                             onClick={() => handleCopy(msg.content, index)}
                             className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
@@ -643,6 +680,15 @@ export default function ChatPage() {
                             ) : (
                               <Copy className="w-4 h-4" />
                             )}
+                          </button>
+
+                          <button
+                            onClick={() => handleSpeak(msg.content)}
+                            className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
+                              }`}
+                            title="Read aloud"
+                          >
+                            <Volume2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -698,20 +744,38 @@ export default function ChatPage() {
                 isTrialExpired
                   ? "Your 7-day trial period has expired."
                   : isConnected
-                    ? "Ask Prompt about your data..."
+                    ? "Ask Piti about your data..."
                     : "Connect DBMS on the sidebar first..."
               }
               disabled={!isConnected || isTrialExpired}
               rows={1}
-              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
-                }`}
+              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${
+                isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
+              }`}
             />
 
+            {/* Voice Input Button */}
+            <button
+              type="button"
+              onClick={handleVoiceInput}
+              disabled={!isConnected || isTrialExpired}
+              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
+                isListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : isDark ? 'text-[#8e8e8e] hover:text-white' : 'text-[#676767] hover:text-black'
+              }`}
+              title={isListening ? "Listening..." : "Voice input"}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            {/* Send Button */}
             <button
               type="submit"
               disabled={loading || !input.trim() || !isConnected || isTrialExpired}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]'
-                }`}
+              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
+                isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]'
+              }`}
             >
               <Send className="w-4 h-4" />
             </button>
