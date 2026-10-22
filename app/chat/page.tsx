@@ -582,108 +582,112 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {/* Área do Chat Central */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans max-w-3xl w-full mx-auto flex flex-col justify-center items-center">
+        {/* Área do Chat Central (Rolagem colada na borda direita) */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
           
-          {messages.length <= 1 ? (
-            <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
-              
-              {/* Título Estilo ChatGPT ("Ready when you are") */}
-              <h2 className={`text-2xl sm:text-3xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#0d0d0d]'}`}>
-                Ready when you are.
-              </h2>
-              <p className={`text-xs max-w-md ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                Selecione uma das consultas recomendadas abaixo ou digite sua pergunta sobre vendas, estoque e clientes.
-              </p>
+          {/* Container interno limitado para alinhar o texto e as mensagens */}
+          <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
 
-              {/* Sugestões Rápidas Pré-Prontas Estilo GPT */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
-                {[
-                  "📈 Qual foi o faturamento total deste mês?",
-                  "📊 Liste os 5 produtos mais vendidos",
-                  "⚠️ Clientes sem compras há mais de 60 dias",
-                  "💵 Qual a média diária de vendas em 2026?"
-                ].map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    disabled={isTrialExpired}
-                    onClick={() => setInput(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
-                    className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${
-                      isDark 
-                        ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121] hover:border-white/20' 
-                        : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0] hover:border-black/15 shadow-sm'
-                    } ${isTrialExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+            {messages.length <= 1 ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
+                
+                {/* Título Estilo ChatGPT ("Ready when you are") */}
+                <h2 className={`text-2xl sm:text-3xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#0d0d0d]'}`}>
+                  Ready when you are.
+                </h2>
+                <p className={`text-xs max-w-md ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                  Selecione uma das consultas recomendadas abaixo ou digite sua pergunta sobre vendas, estoque e clientes.
+                </p>
+
+                {/* Sugestões Rápidas Pré-Prontas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
+                  {[
+                    "📈 Qual foi o faturamento total deste mês?",
+                    "📊 Liste os 5 produtos mais vendidos",
+                    "⚠️ Clientes sem compras há mais de 60 dias",
+                    "💵 Qual a média diária de vendas em 2026?"
+                  ].map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      disabled={isTrialExpired}
+                      onClick={() => setInput(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
+                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${
+                        isDark 
+                          ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121] hover:border-white/20' 
+                          : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0] hover:border-black/15 shadow-sm'
+                      } ${isTrialExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            /* MENSAGENS DA CONVERSA */
-            <div className="w-full space-y-6">
-              {messages.map((msg, index) => (
-                <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  {msg.role === 'user' ? (
-                    <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${
-                      isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'
-                    }`}>
-                      {msg.content}
-                    </div>
-                  ) : (
-                    <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => <p className={`mb-4 leading-relaxed text-[15px] ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>{children}</p>,
-                          code({ node, inline, className, children, ...props }: any) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <div className={`my-4 overflow-hidden rounded-xl border ${
-                                isDark ? 'bg-[#171717] border-white/10' : 'bg-[#f9f9f9] border-black/10'
-                              }`}>
-                                <div className={`px-4 py-2 text-[11px] font-mono uppercase flex justify-between items-center ${
-                                  isDark ? 'bg-[#212121] text-[#8e8e8e]' : 'bg-[#e5e5e5] text-[#676767]'
-                                }`}>
-                                  <span>{match[1]}</span>
-                                </div>
-                                <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed ${
-                                  isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'
-                                }`}>
-                                  <code>{String(children).replace(/\n$/, '')}</code>
-                                </pre>
-                              </div>
-                            ) : (
-                              <code className={`px-1.5 py-0.5 rounded text-xs ${
-                                isDark ? 'bg-[#212121] text-amber-200' : 'bg-[#e5e5e5] text-amber-800'
-                              }`} {...props}>
-                                {children}
-                              </code>
-                            );
-                          }
-                        }}
-                      >
+            ) : (
+              /* MENSAGENS DA CONVERSA */
+              <div className="w-full space-y-6">
+                {messages.map((msg, index) => (
+                  <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {msg.role === 'user' ? (
+                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${
+                        isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'
+                      }`}>
                         {msg.content}
-                      </ReactMarkdown>
-
-                      <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                        <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-emerald-500 rounded transition" title="Copiar">
-                          {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                        </button>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className={`mb-4 leading-relaxed text-[15px] ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>{children}</p>,
+                            code({ node, inline, className, children, ...props }: any) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <div className={`my-4 overflow-hidden rounded-xl border ${
+                                  isDark ? 'bg-[#171717] border-white/10' : 'bg-[#f9f9f9] border-black/10'
+                                }`}>
+                                  <div className={`px-4 py-2 text-[11px] font-mono uppercase flex justify-between items-center ${
+                                    isDark ? 'bg-[#212121] text-[#8e8e8e]' : 'bg-[#e5e5e5] text-[#676767]'
+                                  }`}>
+                                    <span>{match[1]}</span>
+                                  </div>
+                                  <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed ${
+                                    isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'
+                                  }`}>
+                                    <code>{String(children).replace(/\n$/, '')}</code>
+                                  </pre>
+                                </div>
+                              ) : (
+                                <code className={`px-1.5 py-0.5 rounded text-xs ${
+                                  isDark ? 'bg-[#212121] text-amber-200' : 'bg-[#e5e5e5] text-amber-800'
+                                }`} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
 
-              {loading && (
-                <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs">Piti está analisando os dados...</span>
-                </div>
-              )}
-            </div>
-          )}
+                        <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-emerald-500 rounded transition" title="Copiar">
+                            {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
 
+                {loading && (
+                  <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-xs">Piti está analisando os dados...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
         </div>
 
         {/* Input Inferior Dinâmico */}
