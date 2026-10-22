@@ -698,7 +698,7 @@ export default function ChatPage() {
                 isTrialExpired
                   ? "Your 7-day trial period has expired."
                   : isConnected
-                    ? "Ask Piti about your data..."
+                    ? "Ask Prompt about your data..."
                     : "Connect DBMS on the sidebar first..."
               }
               disabled={!isConnected || isTrialExpired}
