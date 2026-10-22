@@ -266,9 +266,9 @@ export default function ChatPage() {
           {/* Topo da Sidebar */}
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <div className="flex items-center gap-2">
-              <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />
+             {/* <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />*/}
               <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
-                prompt
+                Prompt
               </span>
             </div>
             
