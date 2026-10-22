@@ -359,7 +359,7 @@ export default function ChatPage() {
           
           {/* Topo do Modal */}
           <div className="w-full flex justify-between items-center text-[#8e8e8e] text-xs">
-            <span>Prompt BI Voice</span>
+            <span>Sona BI Voice</span>
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
@@ -368,7 +368,7 @@ export default function ChatPage() {
             <PitiOrb isThinking={loading || isSpeaking} />
             
             <p className="text-sm font-medium text-[#8e8e8e] transition-all">
-              {isSpeaking ? 'Prompt is answering...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
+              {isSpeaking ? 'Sona is answering...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
             </p>
           </div>
 
@@ -429,7 +429,7 @@ export default function ChatPage() {
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <div className="flex items-center gap-2">
               <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
-                Prompt
+                Sona
               </span>
             </div>
 
@@ -658,7 +658,7 @@ export default function ChatPage() {
             )}
 
             <div className={`flex items-center gap-1.5 font-medium text-sm md:text-base px-2 py-1 ${isDark ? 'text-white' : 'text-black'}`}>
-              <span>Prompt BI Agent</span>
+              <span>Sona BI Agent</span>
             </div>
           </div>
 
@@ -826,7 +826,7 @@ export default function ChatPage() {
                 {loading && (
                   <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Prompt is analyzing the data...</span>
+                    <span className="text-xs">Sona is analyzing the data...</span>
                   </div>
                 )}
               </div>

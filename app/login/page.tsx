@@ -35,7 +35,7 @@ export default function LoginPage() {
           className="w-9 h-9 object-contain" 
         />*/}
         <span className="font-mono font-semibold text-2xl text-white tracking-tight">
-          Prompt
+          Sona
         </span>
       </header>
 
@@ -100,6 +100,9 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="flex flex-col items-center gap-2 text-center text-xs text-[#676767]">
         <div className="flex items-center gap-3">
+          <span className="font-mono font-semibold text-2xl text-white tracking-tight">
+          Sona
+        </span>
           <a href="#" className="hover:underline transition">Terms of Use</a>
           <span>|</span>
           <a href="#" className="hover:underline transition">Privacy Policy</a>
