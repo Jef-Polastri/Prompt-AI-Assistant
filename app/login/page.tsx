@@ -32,7 +32,7 @@ export default function LoginPage() {
       <header className="flex items-center gap-2.5">
         <img src="/logos/LogoPrompt.png" alt="Prompt Logo" className="w-7 h-7 object-contain" />
         <span className="font-mono font-semibold text-lg text-white tracking-tight">
-          prompt
+          Prompt
         </span>
       </header>
 
