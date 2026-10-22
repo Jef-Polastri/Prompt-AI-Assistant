@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check, 
+import {
+  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
   Settings, Sun, Moon
 } from 'lucide-react';
@@ -235,49 +235,47 @@ export default function ChatPage() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${
-      isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
-    }`}>
+    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
+      }`}>
 
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           onClick={() => setIsMobileMenuOpen(false)}
           className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`
           fixed md:relative inset-y-0 left-0 z-40
           ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
           ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
-          ${isDark 
-            ? 'bg-[#171717] border-[#212121]' 
+          ${isDark
+            ? 'bg-[#171717] border-[#212121]'
             : 'bg-[#f9f9f9] border-[#e5e5e5]'
           }
           transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
         `}
       >
         <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
-          
+
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <div className="flex items-center gap-2">
-             {/* <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />*/}
+              {/* <img src="/logos/LogoPrompt.png" alt="Logo" className="w-7 h-7 object-contain" />*/}
               <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
                 Prompt
               </span>
             </div>
-            
+
             <button
               onClick={() => {
                 setIsSidebarOpen(false);
                 setIsMobileMenuOpen(false);
               }}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'
-              }`}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'
+                }`}
               title="Close sidebar"
             >
               <PanelLeftClose className="w-5 h-5" />
@@ -288,11 +286,10 @@ export default function ChatPage() {
           <button
             onClick={handleNewChat}
             disabled={isTrialExpired}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer border ${
-              isDark 
-                ? 'text-white border-white/5 hover:bg-[#212121]' 
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer border ${isDark
+                ? 'text-white border-white/5 hover:bg-[#212121]'
                 : 'text-black border-black/5 hover:bg-[#ececec]'
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             <div className="flex items-center gap-2.5">
               <Plus className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
@@ -301,14 +298,12 @@ export default function ChatPage() {
           </button>
 
           {/* Database Connection */}
-          <div className={`rounded-xl border overflow-hidden transition-all duration-200 shrink-0 mt-2 ${
-            isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'
-          }`}>
+          <div className={`rounded-xl border overflow-hidden transition-all duration-200 shrink-0 mt-2 ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'
+            }`}>
             <button
               onClick={() => setIsDbMenuOpen(!isDbMenuOpen)}
-              className={`w-full flex items-center justify-between p-2.5 text-left transition cursor-pointer ${
-                isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#e5e5e5]'
-              }`}
+              className={`w-full flex items-center justify-between p-2.5 text-left transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#e5e5e5]'
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Database className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
@@ -328,9 +323,8 @@ export default function ChatPage() {
                     value={dbType}
                     disabled={isTrialExpired}
                     onChange={(e) => setDbType(e.target.value)}
-                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                      isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                    }`}
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
                   >
                     <option value="postgres">PostgreSQL / Supabase</option>
                     <option value="mysql">MySQL</option>
@@ -347,9 +341,8 @@ export default function ChatPage() {
                       disabled={isTrialExpired}
                       value={dbConfig.host}
                       onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
-                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                        isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                      }`}
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                        }`}
                       required
                     />
                   </div>
@@ -360,9 +353,8 @@ export default function ChatPage() {
                       disabled={isTrialExpired}
                       value={dbConfig.port}
                       onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
-                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                        isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                      }`}
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                        }`}
                       required
                     />
                   </div>
@@ -376,9 +368,8 @@ export default function ChatPage() {
                     value={dbConfig.database}
                     onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
                     placeholder="e.g. company_db"
-                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                      isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                    }`}
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
                     required
                   />
                 </div>
@@ -391,9 +382,8 @@ export default function ChatPage() {
                     value={dbConfig.user}
                     onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
                     placeholder="postgres"
-                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                      isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                    }`}
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
                     required
                   />
                 </div>
@@ -406,9 +396,8 @@ export default function ChatPage() {
                     value={dbConfig.password}
                     onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
                     placeholder="••••••••"
-                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${
-                      isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                    }`}
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
                     required
                   />
                 </div>
@@ -416,9 +405,8 @@ export default function ChatPage() {
                 <button
                   type="submit"
                   disabled={connecting || isTrialExpired}
-                  className={`w-full text-xs font-medium py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
-                    isDark ? 'bg-[#2f2f2f] hover:bg-[#383838] text-white' : 'bg-[#e0e0e0] hover:bg-[#d5d5d5] text-black'
-                  }`}
+                  className={`w-full text-xs font-medium py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-[#2f2f2f] hover:bg-[#383838] text-white' : 'bg-[#e0e0e0] hover:bg-[#d5d5d5] text-black'
+                    }`}
                 >
                   {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {isConnected ? 'Reconnect' : 'Connect DBMS'}
@@ -434,11 +422,10 @@ export default function ChatPage() {
               <div
                 key={session.id}
                 onClick={() => handleSelectSession(session.id)}
-                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${
-                  activeSessionId === session.id 
+                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id
                     ? isDark ? 'bg-[#212121] text-white font-medium' : 'bg-[#e5e5e5] text-black font-medium'
                     : isDark ? 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white' : 'text-[#555555] hover:bg-[#eaeaea] hover:text-black'
-                }`}
+                  }`}
               >
                 <span className="truncate pr-4">{session.title}</span>
                 <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
@@ -453,12 +440,10 @@ export default function ChatPage() {
         {/* User Footer */}
         <div className={`p-3 border-t relative ${isDark ? 'border-white/5' : 'border-black/5'}`}>
           {isUserMenuOpen && (
-            <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${
-              isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'
-            }`}>
-              <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${
-                isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'
+            <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'
               }`}>
+              <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'
+                }`}>
                 <LogOut className="w-4 h-4 text-red-400" />
                 <span>Log out</span>
               </button>
@@ -466,14 +451,12 @@ export default function ChatPage() {
           )}
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-left ${
-              isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#eaeaea]'
-            }`}
+            className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-left ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#eaeaea]'
+              }`}
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'
-              }`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'
+                }`}>
                 {userEmail.charAt(0).toUpperCase()}
               </div>
               <span className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>{userEmail}</span>
@@ -487,15 +470,13 @@ export default function ChatPage() {
       <main className={`relative flex-1 flex flex-col h-full overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
         {/* Header */}
-        <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${
-          isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'
-        }`}>
+        <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'
+          }`}>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${
-                isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
-              }`}
+              className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                }`}
               title="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -504,9 +485,8 @@ export default function ChatPage() {
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${
-                  isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
-                }`}
+                className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                  }`}
                 title="Show sidebar"
               >
                 <PanelLeft className="w-5 h-5" />
@@ -519,11 +499,10 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-3 relative">
-            <span className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border ${
-              isTrialExpired 
-                ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+            <span className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border ${isTrialExpired
+                ? 'bg-red-500/10 text-red-400 border-red-500/20'
                 : isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5'
-            }`}>
+              }`}>
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </span>
 
@@ -531,27 +510,24 @@ export default function ChatPage() {
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className={`p-2 rounded-full transition cursor-pointer ${
-                  isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
-                }`}
+                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                  }`}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
               </button>
 
               {isSettingsOpen && (
-                <div className={`absolute right-0 mt-2 w-48 border rounded-2xl p-2 shadow-2xl z-50 transition-all ${
-                  isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
-                }`}>
+                <div className={`absolute right-0 mt-2 w-48 border rounded-2xl p-2 shadow-2xl z-50 transition-all ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                  }`}>
                   <p className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#8e8e8e]'}`}>
                     Appearance
                   </p>
-                  
+
                   <button
                     onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
-                      isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-[#f0f0f0] text-black'
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-[#f0f0f0] text-black'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Moon className="w-4 h-4 text-purple-400" />
@@ -562,9 +538,8 @@ export default function ChatPage() {
 
                   <button
                     onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${
-                      !isDark ? 'bg-[#e5e5e5] font-semibold text-black' : 'hover:bg-[#212121] text-white'
-                    }`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-[#e5e5e5] font-semibold text-black' : 'hover:bg-[#212121] text-white'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Sun className="w-4 h-4 text-amber-500" />
@@ -581,12 +556,12 @@ export default function ChatPage() {
 
         {/* Scrollable Center Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
-          
+
           <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
 
             {messages.length <= 1 ? (
               <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
-                
+
                 <h2 className={`text-2xl sm:text-3xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#0d0d0d]'}`}>
                   Ready when you are.
                 </h2>
@@ -606,11 +581,10 @@ export default function ChatPage() {
                       key={idx}
                       disabled={isTrialExpired}
                       onClick={() => setInput(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
-                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${
-                        isDark 
-                          ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121] hover:border-white/20' 
+                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${isDark
+                          ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121] hover:border-white/20'
                           : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0] hover:border-black/15 shadow-sm'
-                      } ${isTrialExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        } ${isTrialExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                       {suggestion}
                     </button>
@@ -622,9 +596,8 @@ export default function ChatPage() {
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${
-                        isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'
-                      }`}>
+                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'
+                        }`}>
                         {msg.content}
                       </div>
                     ) : (
@@ -635,24 +608,20 @@ export default function ChatPage() {
                             code({ node, inline, className, children, ...props }: any) {
                               const match = /language-(\w+)/.exec(className || '');
                               return !inline && match ? (
-                                <div className={`my-4 overflow-hidden rounded-xl border ${
-                                  isDark ? 'bg-[#171717] border-white/10' : 'bg-[#f9f9f9] border-black/10'
-                                }`}>
-                                  <div className={`px-4 py-2 text-[11px] font-mono uppercase flex justify-between items-center ${
-                                    isDark ? 'bg-[#212121] text-[#8e8e8e]' : 'bg-[#e5e5e5] text-[#676767]'
+                                <div className={`my-4 overflow-hidden rounded-xl border ${isDark ? 'bg-[#171717] border-white/10' : 'bg-[#f9f9f9] border-black/10'
                                   }`}>
+                                  <div className={`px-4 py-2 text-[11px] font-mono uppercase flex justify-between items-center ${isDark ? 'bg-[#212121] text-[#8e8e8e]' : 'bg-[#e5e5e5] text-[#676767]'
+                                    }`}>
                                     <span>{match[1]}</span>
                                   </div>
-                                  <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed ${
-                                    isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'
-                                  }`}>
+                                  <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'
+                                    }`}>
                                     <code>{String(children).replace(/\n$/, '')}</code>
                                   </pre>
                                 </div>
                               ) : (
-                                <code className={`px-1.5 py-0.5 rounded text-xs ${
-                                  isDark ? 'bg-[#212121] text-amber-200' : 'bg-[#e5e5e5] text-amber-800'
-                                }`} {...props}>
+                                <code className={`px-1.5 py-0.5 rounded text-xs ${isDark ? 'bg-[#212121] text-amber-200' : 'bg-[#e5e5e5] text-amber-800'
+                                  }`} {...props}>
                                   {children}
                                 </code>
                               );
@@ -663,8 +632,17 @@ export default function ChatPage() {
                         </ReactMarkdown>
 
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 hover:text-emerald-500 rounded transition" title="Copy">
-                            {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                          <button
+                            onClick={() => handleCopy(msg.content, index)}
+                            className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
+                              }`}
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -686,7 +664,7 @@ export default function ChatPage() {
 
         {/* Input Bar */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-          
+
           {isTrialExpired && (
             <div className="p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-2 text-center">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
@@ -696,11 +674,10 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${
-            isDark 
-              ? 'bg-[#212121] border-white/5 focus-within:border-white/20' 
+          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark
+              ? 'bg-[#212121] border-white/5 focus-within:border-white/20'
               : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'
-          }`}>
+            }`}>
             <textarea
               value={input}
               onChange={(e) => {
@@ -718,25 +695,23 @@ export default function ChatPage() {
                 }
               }}
               placeholder={
-                isTrialExpired 
-                  ? "Your 7-day trial period has expired." 
-                  : isConnected 
-                    ? "Ask Piti about your data..." 
+                isTrialExpired
+                  ? "Your 7-day trial period has expired."
+                  : isConnected
+                    ? "Ask Piti about your data..."
                     : "Connect DBMS on the sidebar first..."
               }
               disabled={!isConnected || isTrialExpired}
               rows={1}
-              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${
-                isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
-              }`}
+              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
+                }`}
             />
 
             <button
               type="submit"
               disabled={loading || !input.trim() || !isConnected || isTrialExpired}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
-                isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]'
-              }`}
+              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]'
+                }`}
             >
               <Send className="w-4 h-4" />
             </button>
