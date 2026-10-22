@@ -186,31 +186,33 @@ export default function ChatPage() {
   };
 
   // Função de Síntese de Voz FIXADA em Voz Feminina Suave e Natural
+  // Função para usar a voz natural e fluida do Google (que lê "reais" perfeitamente)
   const handleSpeak = (text: string, autoListenNext = false) => {
     if (!('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
 
+    // Limpa marcações markdown
     const cleanText = text.replace(/[*_#`~]/g, '');
     const lang = detectLanguage(cleanText);
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 0.95; 
-    utterance.pitch = 1.05; 
+    utterance.rate = 0.98; // Velocidade perfeita e natural
+    utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find((v) => {
-      const isLangMatch = v.lang.startsWith(lang.slice(0, 2));
+
+    // 🎯 BUSCA EXATA PELA VOZ DE ALTA QUALIDADE DO GOOGLE OU NATURAL
+    const naturalVoice = voices.find((v) => {
+      const isLang = v.lang.startsWith(lang.slice(0, 2));
       const name = v.name.toLowerCase();
-      const isFemale = name.includes('female') || name.includes('zira') || name.includes('hazel') || 
-                       name.includes('luciana') || name.includes('natural') || 
-                       name.includes('google') || name.includes('victoria') || name.includes('samantha');
-      return isLangMatch && isFemale;
+      // Prioriza vozes do Google ou Microsoft que são super naturais em português
+      return isLang && (name.includes('google') || name.includes('natural') || name.includes('luciana') || name.includes('brasil'));
     }) || voices.find((v) => v.lang.startsWith(lang.slice(0, 2)));
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
     }
 
     utterance.onstart = () => {
