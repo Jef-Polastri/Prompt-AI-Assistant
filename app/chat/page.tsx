@@ -4,10 +4,11 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon, Mic, MicOff, Volume2, VolumeX
+  Settings, Sun, Moon, Mic, MicOff, Volume2
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
+import PitiOrb from '../components/PitiOrb';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -29,7 +30,6 @@ const checkTrialExpired = (createdAtString: string) => {
   return diffDays > 7;
 };
 
-// Funçao auxiliar para detectar se o texto é predominantemente Português ou Inglês
 const detectLanguage = (text: string): 'pt-BR' | 'en-US' => {
   const portugueseIndicators = /[áàâãéèêíïóôõöúçñ]/i;
   const commonPtWords = /\b(que|como|para|com|você|voce|qual|quais|foram|vendas|faturamento|estoque|clientes|dia|mês|mes|ano)\b/i;
@@ -45,11 +45,13 @@ export default function ChatPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Estados de Voz
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+
+  // Estados do Modo de Voz Estilo ChatGPT
+  const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  
+  const [voiceStatusText, setVoiceStatusText] = useState('Listening...');
+
   const recognitionRef = useRef<any>(null);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -184,39 +186,53 @@ export default function ChatPage() {
     }
   };
 
-  // Funçao de Síntese de Voz Inteligente (Bilingue)
-  const handleSpeak = (text: string, autoContinueVoice = false) => {
+  // Função para sintetizar a voz de forma mais suave e natural
+  const handleSpeak = (text: string, autoListenNext = false) => {
     if (!('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
-    
-    // Limpa marcaçoes markdown para leitura fluida
-    const cleanText = text.replace(/[*_#`~]/g, ''); 
+
+    const cleanText = text.replace(/[*_#`~]/g, '');
     const lang = detectLanguage(cleanText);
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 1.0;
+    utterance.rate = 0.95; // Velocidade ligeiramente reduzida para soar mais suave
+    utterance.pitch = 1.0;
 
-    utterance.onstart = () => setIsSpeaking(true);
+    // Seleciona a melhor voz instalada no navegador (Neural / Premium)
+    const voices = window.speechSynthesis.getVoices();
+    const smoothVoice = voices.find(
+      (v) => v.lang.startsWith(lang.slice(0, 2)) && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Enhanced'))
+    );
+    if (smoothVoice) utterance.voice = smoothVoice;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setVoiceStatusText('Prompt is speaking...');
+    };
+
     utterance.onend = () => {
       setIsSpeaking(false);
-      // Se o modo voz continuo estiver ligado, volta a escutar apos terminar de falar
-      if (autoContinueVoice && isVoiceMode) {
-        startListening();
+      if (autoListenNext && isVoiceOverlayOpen) {
+        startVoiceRecognition();
       }
     };
 
     window.speechSynthesis.speak(utterance);
   };
 
-  // Função Enviar Pergunta (Com suporte para Modo Voz)
+  // Processa o envio da mensagem e responde por voz
   const processAndSendMessage = async (userMessage: string, fromVoice = false) => {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
+
+    if (fromVoice) {
+      setVoiceStatusText('Thinking...');
+    }
 
     let currentSessionId = activeSessionId;
     try {
@@ -255,8 +271,8 @@ export default function ChatPage() {
       }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
-      // Se foi enviado por voz, responde em áudio automaticamente no idioma correto
-      if (fromVoice || isVoiceMode) {
+      // Se estivemos no modo voz de tela cheia, fala a resposta
+      if (fromVoice || isVoiceOverlayOpen) {
         handleSpeak(assistantReply, true);
       }
     } finally {
@@ -269,8 +285,8 @@ export default function ChatPage() {
     processAndSendMessage(input, false);
   };
 
-  // Controle de Escuta de Voz Contínua
-  const startListening = () => {
+  // Inicia o reconhecimento contínuo para a tela cheia
+  const startVoiceRecognition = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Your browser does not support voice recognition.');
       return;
@@ -279,38 +295,41 @@ export default function ChatPage() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
 
-    // Permite detectar Português e Inglês automaticamente
-    recognitionRef.current.lang = 'pt-BR'; 
+    recognitionRef.current.lang = 'pt-BR';
     recognitionRef.current.continuous = false;
     recognitionRef.current.interimResults = false;
 
-    recognitionRef.current.onstart = () => setIsVoiceMode(true);
-    recognitionRef.current.onend = () => {
-      // Se não estiver falando nada e o modo voz continuar ativo
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+      setVoiceStatusText('Listening...');
     };
 
     recognitionRef.current.onresult = (event: any) => {
+      setIsListening(false);
       const transcript = event.results[0][0].transcript;
       if (transcript.trim()) {
         processAndSendMessage(transcript, true);
       }
     };
 
+    recognitionRef.current.onerror = () => {
+      setIsListening(false);
+    };
+
     recognitionRef.current.start();
   };
 
-  const toggleVoiceMode = () => {
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
+  const openVoiceOverlay = () => {
+    setIsVoiceOverlayOpen(true);
+    startVoiceRecognition();
+  };
 
-    if (isVoiceMode) {
-      setIsVoiceMode(false);
-      if (recognitionRef.current) recognitionRef.current.stop();
-    } else {
-      startListening();
-    }
+  const closeVoiceOverlay = () => {
+    setIsVoiceOverlayOpen(false);
+    setIsListening(false);
+    setIsSpeaking(false);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (recognitionRef.current) recognitionRef.current.stop();
   };
 
   const handleCopy = (text: string, index: number) => {
@@ -333,6 +352,56 @@ export default function ChatPage() {
   return (
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
       }`}>
+
+      {/* 🔴 MODAL FULLSCREEN ESTILO CHATGPT ADVANCED VOICE MODE */}
+      {isVoiceOverlayOpen && (
+        <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
+          
+          {/* Topo do Modal */}
+          <div className="w-full flex justify-between items-center text-[#8e8e8e] text-xs">
+            <span>Prompt BI Voice</span>
+            <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
+          </div>
+
+          {/* Centro: Esfera Flutuante Animada */}
+          <div className="flex flex-col items-center justify-center my-auto space-y-6">
+            <PitiOrb isThinking={loading || isSpeaking} />
+            
+            <p className="text-sm font-medium text-[#8e8e8e] transition-all">
+              {isSpeaking ? 'Prompt is answering...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
+            </p>
+          </div>
+
+          {/* Rodapé do Modal com Botões (Microfone e Fechar X) */}
+          <div className="w-full max-w-xs flex items-center justify-center gap-6 pb-6">
+            <button
+              onClick={() => {
+                if (isListening) {
+                  if (recognitionRef.current) recognitionRef.current.stop();
+                  setIsListening(false);
+                } else {
+                  startVoiceRecognition();
+                }
+              }}
+              className={`p-4 rounded-full transition cursor-pointer shadow-xl ${
+                isListening ? 'bg-white text-black scale-110' : 'bg-[#171717] text-white hover:bg-[#212121]'
+              }`}
+              title="Toggle Listening"
+            >
+              {isListening ? <Mic className="w-6 h-6 animate-pulse" /> : <MicOff className="w-6 h-6" />}
+            </button>
+
+            <button
+              onClick={closeVoiceOverlay}
+              className="p-4 rounded-full bg-[#171717] hover:bg-[#212121] text-white transition cursor-pointer border border-white/10 shadow-xl"
+              title="Close Voice Mode"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+        </div>
+      )}
 
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
@@ -740,7 +809,6 @@ export default function ChatPage() {
                             )}
                           </button>
 
-                          {/* Botão de Leitura Manual que detecta idioma */}
                           <button
                             onClick={() => handleSpeak(msg.content)}
                             className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
@@ -767,7 +835,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar & Botão de Voz Dinâmico */}
+        {/* Input Bar */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
           {isTrialExpired && (
@@ -800,13 +868,11 @@ export default function ChatPage() {
                 }
               }}
               placeholder={
-                isVoiceMode 
-                  ? "🎙️ Live Voice Mode active... Speak your question."
-                  : isTrialExpired
-                    ? "Your 7-day trial period has expired."
-                    : isConnected
-                      ? "Ask Piti about your data..."
-                      : "Connect DBMS on the sidebar first..."
+                isTrialExpired
+                  ? "Your 7-day trial period has expired."
+                  : isConnected
+                    ? "Ask Piti about your data..."
+                    : "Connect DBMS on the sidebar first..."
               }
               disabled={!isConnected || isTrialExpired}
               rows={1}
@@ -815,19 +881,17 @@ export default function ChatPage() {
               }`}
             />
 
-            {/* BOTÃO DE VOZ DINÂMICO (Modo Conversação Viva) */}
+            {/* BOTÃO DO MICROFONE (ABRE TELA CHEIA ESTILO CHATGPT) */}
             <button
               type="button"
-              onClick={toggleVoiceMode}
+              onClick={openVoiceOverlay}
               disabled={!isConnected || isTrialExpired}
               className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
-                isVoiceMode || isSpeaking
-                  ? 'bg-purple-600 text-white animate-pulse shadow-lg'
-                  : isDark ? 'text-[#8e8e8e] hover:text-white' : 'text-[#676767] hover:text-black'
+                isDark ? 'text-[#8e8e8e] hover:text-white' : 'text-[#676767] hover:text-black'
               }`}
-              title={isVoiceMode ? "Stop Voice Mode" : "Start Live Voice Conversation"}
+              title="Open Voice Mode"
             >
-              {isVoiceMode || isSpeaking ? <VolumeX className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              <Mic className="w-4 h-4" />
             </button>
 
             {/* Send Button */}
