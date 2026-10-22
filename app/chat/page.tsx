@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
-import PitiOrb from '../components/PitiOrb';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -57,7 +56,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I am Piti 🤖. Select your database type and provide your credentials in the sidebar to get started.'
+      content: 'Hello! I am Sona 🤖. Select your database type and provide your credentials in the sidebar to get started.'
     }
   ]);
 
@@ -186,7 +185,7 @@ export default function ChatPage() {
     }
   };
 
-  // Função para sintetizar a voz de forma mais suave e natural
+  // Função de Síntese de Voz FIXADA em Voz Feminina Suave e Natural
   const handleSpeak = (text: string, autoListenNext = false) => {
     if (!('speechSynthesis' in window)) return;
 
@@ -197,19 +196,26 @@ export default function ChatPage() {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 0.95; // Velocidade ligeiramente reduzida para soar mais suave
-    utterance.pitch = 1.0;
+    utterance.rate = 0.95; 
+    utterance.pitch = 1.05; 
 
-    // Seleciona a melhor voz instalada no navegador (Neural / Premium)
     const voices = window.speechSynthesis.getVoices();
-    const smoothVoice = voices.find(
-      (v) => v.lang.startsWith(lang.slice(0, 2)) && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Enhanced'))
-    );
-    if (smoothVoice) utterance.voice = smoothVoice;
+    const femaleVoice = voices.find((v) => {
+      const isLangMatch = v.lang.startsWith(lang.slice(0, 2));
+      const name = v.name.toLowerCase();
+      const isFemale = name.includes('female') || name.includes('zira') || name.includes('hazel') || 
+                       name.includes('luciana') || name.includes('natural') || 
+                       name.includes('google') || name.includes('victoria') || name.includes('samantha');
+      return isLangMatch && isFemale;
+    }) || voices.find((v) => v.lang.startsWith(lang.slice(0, 2)));
+
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
 
     utterance.onstart = () => {
       setIsSpeaking(true);
-      setVoiceStatusText('Prompt is speaking...');
+      setVoiceStatusText('Sona is speaking...');
     };
 
     utterance.onend = () => {
@@ -222,7 +228,6 @@ export default function ChatPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Processa o envio da mensagem e responde por voz
   const processAndSendMessage = async (userMessage: string, fromVoice = false) => {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
@@ -271,7 +276,6 @@ export default function ChatPage() {
       }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
-      // Se estivemos no modo voz de tela cheia, fala a resposta
       if (fromVoice || isVoiceOverlayOpen) {
         handleSpeak(assistantReply, true);
       }
@@ -285,7 +289,6 @@ export default function ChatPage() {
     processAndSendMessage(input, false);
   };
 
-  // Inicia o reconhecimento contínuo para a tela cheia
   const startVoiceRecognition = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Your browser does not support voice recognition.');
@@ -353,26 +356,37 @@ export default function ChatPage() {
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
       }`}>
 
-      {/* 🔴 MODAL FULLSCREEN ESTILO CHATGPT ADVANCED VOICE MODE */}
+      {/* 🔴 MODAL FULLSCREEN DE VOZ COM BARRAS DE ÁUDIO SUTIS */}
       {isVoiceOverlayOpen && (
         <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
           
-          {/* Topo do Modal */}
           <div className="w-full flex justify-between items-center text-[#8e8e8e] text-xs">
             <span>Sona BI Voice</span>
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
-          {/* Centro: Esfera Flutuante Animada */}
+          {/* Centro: Barras de Áudio Sutis Animadas */}
           <div className="flex flex-col items-center justify-center my-auto space-y-6">
-            <PitiOrb isThinking={loading || isSpeaking} />
+            <div className="flex items-center gap-1.5 h-16">
+              {[...Array(7)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-1.5 rounded-full transition-all duration-300 ${
+                    isListening || isSpeaking || loading ? 'bg-white animate-pulse' : 'bg-[#404040]'
+                  }`}
+                  style={{
+                    height: isListening || isSpeaking || loading ? `${Math.max(20, Math.random() * 64)}px` : '16px',
+                    animationDelay: `${i * 0.15}s`
+                  }}
+                />
+              ))}
+            </div>
             
             <p className="text-sm font-medium text-[#8e8e8e] transition-all">
-              {isSpeaking ? 'Sona is answering...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
+              {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
             </p>
           </div>
 
-          {/* Rodapé do Modal com Botões (Microfone e Fechar X) */}
           <div className="w-full max-w-xs flex items-center justify-center gap-6 pb-6">
             <button
               onClick={() => {
@@ -663,12 +677,18 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-3 relative">
-            <span className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border ${isTrialExpired
-                ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                : isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5'
-              }`}>
-              {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
-            </span>
+            {/* BOTÃO TRIAL CORRIGIDO PARA ABRIR O CLIENTE DE E-MAIL */}
+            <a
+              href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Trial%20Support%20or%20Upgrade&body=Olá,%20gostaria%20de%20obter%20suporte%20ou%20fazer%20o%20upgrade%20do%20meu%20plano%20no%20Sona%20BI."
+              className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${
+                isTrialExpired 
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                  : isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5'
+              }`}
+              title="Clique para enviar e-mail de suporte/upgrade"
+            >
+              {isTrialExpired ? 'Trial Expired (Contact Support)' : 'Trial (7 days)'}
+            </a>
 
             {/* Settings & Theme Selector */}
             <div className="relative">
@@ -839,11 +859,19 @@ export default function ChatPage() {
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
           {isTrialExpired && (
-            <div className="p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center gap-2 text-center">
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-              <p className="text-xs text-red-400 font-medium">
-                Your 7-day free trial has expired. Please upgrade your plan to continue querying data.
-              </p>
+            <div className="p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between gap-2 text-center">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400 font-medium">
+                  Your 7-day free trial has expired.
+                </p>
+              </div>
+              <a
+                href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Trial%20Upgrade&body=Olá,%20gostaria%20de%20fazer%20o%20upgrade%20do%20meu%20plano%20no%20Sona%20BI."
+                className="text-xs text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg transition"
+              >
+                Upgrade Plan
+              </a>
             </div>
           )}
 
@@ -871,7 +899,7 @@ export default function ChatPage() {
                 isTrialExpired
                   ? "Your 7-day trial period has expired."
                   : isConnected
-                    ? "Ask Piti about your data..."
+                    ? "Ask Sona about your data..."
                     : "Connect DBMS on the sidebar first..."
               }
               disabled={!isConnected || isTrialExpired}
@@ -907,7 +935,7 @@ export default function ChatPage() {
           </form>
 
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
-            Prompt can make mistakes. Verify important data.
+            Sona can make mistakes. Verify important data.
           </p>
         </div>
 
