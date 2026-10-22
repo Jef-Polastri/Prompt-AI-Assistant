@@ -31,7 +31,7 @@ export default function LoginPage() {
       {/* Topo: Logo Discreta no Canto Superior Esquerdo */}
       <header className="flex items-center gap-2.5">
         {/*<img src="/logos/LogoPrompt.png" alt="Prompt Logo" className="w-7 h-7 object-contain" />*/}
-        <span className="font-mono font-semibold text-lg w-10 h-10 text-white tracking-tight">
+        <span className="font-mono font-semibold text-2xl text-white tracking-tight">
           Prompt
         </span>
       </header>
