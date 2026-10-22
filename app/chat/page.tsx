@@ -675,7 +675,7 @@ export default function ChatPage() {
                 {loading && (
                   <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Piti is analyzing the data...</span>
+                    <span className="text-xs">Prompt is analyzing the data...</span>
                   </div>
                 )}
               </div>
