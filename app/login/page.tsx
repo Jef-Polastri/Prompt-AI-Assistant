@@ -31,7 +31,7 @@ export default function LoginPage() {
       {/* Topo: Logo Discreta no Canto Superior Esquerdo */}
       <header className="flex items-center gap-2.5">
         {/*<img src="/logos/LogoPrompt.png" alt="Prompt Logo" className="w-7 h-7 object-contain" />*/}
-        <span className="font-mono font-semibold text-lg text-white tracking-tight">
+        <span className="font-mono font-semibold text-lg font-size{20} text-white tracking-tight">
           Prompt
         </span>
       </header>
@@ -40,7 +40,7 @@ export default function LoginPage() {
       <main className="w-full max-w-[360px] mx-auto space-y-6 text-center my-auto">
         
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-          Acessar seu Prompt
+          Acesse seu workspace
         </h1>
 
         {errorMessage && (
