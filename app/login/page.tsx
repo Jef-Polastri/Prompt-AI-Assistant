@@ -6,7 +6,6 @@ import { supabase } from '@/utils/supabase';
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Login Social Unificado (Google, Microsoft/Azure ou GitHub)
   const handleOAuthLogin = async (provider: 'google' | 'azure' | 'github') => {
     try {
       setErrorMessage('');
@@ -21,26 +20,30 @@ export default function LoginPage() {
         setErrorMessage(error.message);
       }
     } catch (err) {
-      setErrorMessage('Erro ao tentar conectar com o provedor.');
+      setErrorMessage('Error connecting with the provider.');
     }
   };
 
   return (
     <div className="flex flex-col justify-between min-h-screen w-screen bg-[#000000] text-[#ececec] font-sans p-6 md:p-8 select-none relative overflow-hidden">
 
-      {/* Topo: Logo Discreta no Canto Superior Esquerdo */}
-      <header className="flex items-center gap-2.5">
-        {/*<img src="/logos/LogoPrompt.png" alt="Prompt Logo" className="w-7 h-7 object-contain" />*/}
+      {/* Top Bar Logo */}
+      <header className="flex items-center gap-3">
+       {/* <img 
+          src="/logos/LogoPrompt.png" 
+          alt="Prompt Logo" 
+          className="w-9 h-9 object-contain" 
+        />*/}
         <span className="font-mono font-semibold text-2xl text-white tracking-tight">
           Prompt
         </span>
       </header>
 
-      {/* Centro: Formulário Minimalista de Botões Sociais */}
+      {/* Center Container */}
       <main className="w-full max-w-[360px] mx-auto space-y-6 text-center my-auto">
         
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-          Acesse seu workspace
+          Log in 
         </h1>
 
         {errorMessage && (
@@ -49,7 +52,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Botões Estilo Cápsula OpenAI (Rounded-Full) */}
+        {/* OAuth Buttons */}
         <div className="space-y-3 pt-2">
 
           {/* Google */}
@@ -63,7 +66,7 @@ export default function LoginPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
             </svg>
-            <span>Continuar com o Google</span>
+            <span>Continue with Google</span>
           </button>
 
           {/* Microsoft */}
@@ -77,7 +80,7 @@ export default function LoginPage() {
               <path fill="#f3f3f3" d="M0 12h11v11H0z" />
               <path fill="#f3f3f3" d="M12 12h11v11H12z" />
             </svg>
-            <span>Continuar com a Microsoft</span>
+            <span>Continue with Microsoft</span>
           </button>
 
           {/* GitHub */}
@@ -88,18 +91,18 @@ export default function LoginPage() {
             <svg className="w-4 h-4 shrink-0 fill-current text-white" viewBox="0 0 24 24">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
             </svg>
-            <span>Continuar com o GitHub</span>
+            <span>Continue with GitHub</span>
           </button>
 
         </div>
       </main>
 
-      {/* Rodapé: Links Discretos de Termos & Privacidade */}
+      {/* Footer */}
       <footer className="flex flex-col items-center gap-2 text-center text-xs text-[#676767]">
         <div className="flex items-center gap-3">
-          <a href="#" className="hover:underline transition">Termos de uso</a>
+          <a href="#" className="hover:underline transition">Terms of Use</a>
           <span>|</span>
-          <a href="#" className="hover:underline transition">Política de privacidade</a>
+          <a href="#" className="hover:underline transition">Privacy Policy</a>
         </div>
       </footer>
 
