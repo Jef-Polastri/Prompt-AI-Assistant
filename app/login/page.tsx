@@ -99,7 +99,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="flex flex-col items-center gap-2 text-center text-xs text-[#676767]">
-         <span className="font-mono font-semibold text-2xl text-white tracking-tight">
+         <span className="font-mono font-semibold text-1xl text-white tracking-tight">
           Sona
         </span>
         <div className="flex items-center gap-3">
