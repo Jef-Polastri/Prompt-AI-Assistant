@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useRef } from 'react';
 import {
-  Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
+  Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
   Settings, Sun, Moon, Mic, MicOff, Volume2, Activity
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
+import NeuralParticles from '../components/NeuralParticles';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -45,7 +46,7 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Estados do Modo de Voz Estilo ChatGPT
+  // Estados do Modo de Voz Contínuo
   const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -185,8 +186,8 @@ export default function ChatPage() {
     }
   };
 
-  // Função de Síntese de Voz otimizada para Voz Feminina Natural e Fluida
-  const handleSpeak = (text: string, autoListenNext = false) => {
+  // Função de Voz Feminina Natural sem pausar o microfone
+  const handleSpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
@@ -218,9 +219,7 @@ export default function ChatPage() {
 
     utterance.onend = () => {
       setIsSpeaking(false);
-      if (autoListenNext && isVoiceOverlayOpen) {
-        startVoiceRecognition();
-      }
+      setVoiceStatusText('Listening...');
     };
 
     window.speechSynthesis.speak(utterance);
@@ -234,7 +233,7 @@ export default function ChatPage() {
     setLoading(true);
 
     if (fromVoice) {
-      setVoiceStatusText('Thinking...');
+      setVoiceStatusText('Analyzing...');
     }
 
     let currentSessionId = activeSessionId;
@@ -275,7 +274,7 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
       if (fromVoice || isVoiceOverlayOpen) {
-        handleSpeak(assistantReply, true);
+        handleSpeak(assistantReply);
       }
     } finally {
       setLoading(false);
@@ -287,17 +286,22 @@ export default function ChatPage() {
     processAndSendMessage(input, false);
   };
 
+  // RECONHECIMENTO CONTÍNUO (FULL DUPLEX) - O MICROFONE PERMANECE ABERTO
   const startVoiceRecognition = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Your browser does not support voice recognition.');
       return;
     }
 
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
 
     recognitionRef.current.lang = 'pt-BR';
-    recognitionRef.current.continuous = false;
+    recognitionRef.current.continuous = true; // MANTÉM O MICROFONE ABERTO PARA CONVERSA CONTÍNUA
     recognitionRef.current.interimResults = false;
 
     recognitionRef.current.onstart = () => {
@@ -306,15 +310,26 @@ export default function ChatPage() {
     };
 
     recognitionRef.current.onresult = (event: any) => {
-      setIsListening(false);
-      const transcript = event.results[0][0].transcript;
-      if (transcript.trim()) {
+      const lastResultIndex = event.results.length - 1;
+      const transcript = event.results[lastResultIndex][0].transcript;
+      if (transcript.trim() && !loading) {
+        // Pausa a fala atual se a Sona estiver falando quando o usuário interromper
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         processAndSendMessage(transcript, true);
       }
     };
 
-    recognitionRef.current.onerror = () => {
-      setIsListening(false);
+    recognitionRef.current.onerror = (e: any) => {
+      if (e.error !== 'no-speech') {
+        setIsListening(false);
+      }
+    };
+
+    recognitionRef.current.onend = () => {
+      // Se a tela cheia continuar aberta, reinicia a escuta automaticamente
+      if (isVoiceOverlayOpen) {
+        try { recognitionRef.current.start(); } catch (e) {}
+      }
     };
 
     recognitionRef.current.start();
@@ -330,7 +345,10 @@ export default function ChatPage() {
     setIsListening(false);
     setIsSpeaking(false);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    if (recognitionRef.current) recognitionRef.current.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.stop();
+    }
   };
 
   const handleCopy = (text: string, index: number) => {
@@ -354,7 +372,7 @@ export default function ChatPage() {
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
       }`}>
 
-      {/* 🔴 MODAL FULLSCREEN DE VOZ COM PARTÍCULAS BRANCAS DINÂMICAS */}
+      {/* 🔴 MODAL FULLSCREEN DE VOZ COM PARTÍCULAS EM REDE NEURAL (CONSTELAÇÃO BRANCA) */}
       {isVoiceOverlayOpen && (
         <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
           
@@ -363,27 +381,16 @@ export default function ChatPage() {
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
-          {/* Centro: Partículas Brancas de Áudio Animadas Rápidas e Fluidas */}
-          <div className="flex flex-col items-center justify-center my-auto space-y-6">
-            <div className="flex items-center justify-center gap-2 h-20 w-48">
-              {[...Array(12)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-1.5 bg-white rounded-full transition-all duration-75 ease-out shadow-[0_0_12px_rgba(255,255,255,0.6)]"
-                  style={{
-                    height: isListening || isSpeaking || loading ? `${Math.max(12, Math.sin(Date.now() / 100 + i) * 36 + 40)}px` : '12px',
-                    animation: isListening || isSpeaking || loading ? `pulse 0.4s infinite alternate` : 'none',
-                    animationDelay: `${i * 0.05}s`
-                  }}
-                />
-              ))}
-            </div>
+          {/* Centro: Animação de Partículas em Rede Neural */}
+          <div className="flex flex-col items-center justify-center my-auto space-y-4">
+            <NeuralParticles isActive={isListening || isSpeaking || loading} />
             
             <p className="text-sm font-medium text-[#8e8e8e] transition-all">
-              {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening to your voice...'}
+              {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening continuously...'}
             </p>
           </div>
 
+          {/* Rodapé do Modal */}
           <div className="w-full max-w-xs flex items-center justify-center gap-6 pb-6">
             <button
               onClick={() => {
@@ -397,7 +404,7 @@ export default function ChatPage() {
               className={`p-4 rounded-full transition cursor-pointer shadow-xl ${
                 isListening ? 'bg-white text-black scale-110' : 'bg-[#171717] text-white hover:bg-[#212121]'
               }`}
-              title="Toggle Listening"
+              title="Toggle Mic"
             >
               {isListening ? <Mic className="w-6 h-6 animate-pulse" /> : <MicOff className="w-6 h-6" />}
             </button>
@@ -905,7 +912,6 @@ export default function ChatPage() {
               }`}
             />
 
-            {/* BOTÃO INTELIGENTE: SE TIVER TEXTO = ENVIAR | SE TIVER VAZIO = ONDAS DE VOZ */}
             <button
               type={input.trim() ? "submit" : "button"}
               onClick={input.trim() ? undefined : openVoiceOverlay}
