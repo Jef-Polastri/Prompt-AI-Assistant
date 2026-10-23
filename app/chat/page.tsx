@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, MessageSquare, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon, Mic, MicOff, Volume2
+  Settings, Sun, Moon, Mic, MicOff, Volume2, Activity
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
@@ -185,30 +185,26 @@ export default function ChatPage() {
     }
   };
 
-  // Função de Síntese de Voz FIXADA em Voz Feminina Suave e Natural
-  // Função para usar a voz natural e fluida do Google (que lê "reais" perfeitamente)
+  // Função de Síntese de Voz otimizada para Voz Feminina Natural e Fluida
   const handleSpeak = (text: string, autoListenNext = false) => {
     if (!('speechSynthesis' in window)) return;
 
     window.speechSynthesis.cancel();
 
-    // Limpa marcações markdown
     const cleanText = text.replace(/[*_#`~]/g, '');
     const lang = detectLanguage(cleanText);
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 0.98; // Velocidade perfeita e natural
+    utterance.rate = 0.98;
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
 
-    // 🎯 BUSCA EXATA PELA VOZ DE ALTA QUALIDADE DO GOOGLE OU NATURAL
     const naturalVoice = voices.find((v) => {
       const isLang = v.lang.startsWith(lang.slice(0, 2));
       const name = v.name.toLowerCase();
-      // Prioriza vozes do Google ou Microsoft que são super naturais em português
-      return isLang && (name.includes('google') || name.includes('natural') || name.includes('luciana') || name.includes('brasil'));
+      return isLang && (name.includes('google') || name.includes('natural') || name.includes('luciana') || name.includes('brasil') || name.includes('female'));
     }) || voices.find((v) => v.lang.startsWith(lang.slice(0, 2)));
 
     if (naturalVoice) {
@@ -358,7 +354,7 @@ export default function ChatPage() {
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
       }`}>
 
-      {/* 🔴 MODAL FULLSCREEN DE VOZ COM BARRAS DE ÁUDIO SUTIS */}
+      {/* 🔴 MODAL FULLSCREEN DE VOZ COM PARTÍCULAS BRANCAS DINÂMICAS */}
       {isVoiceOverlayOpen && (
         <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
           
@@ -367,18 +363,17 @@ export default function ChatPage() {
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
-          {/* Centro: Barras de Áudio Sutis Animadas */}
+          {/* Centro: Partículas Brancas de Áudio Animadas Rápidas e Fluidas */}
           <div className="flex flex-col items-center justify-center my-auto space-y-6">
-            <div className="flex items-center gap-1.5 h-16">
-              {[...Array(7)].map((_, i) => (
+            <div className="flex items-center justify-center gap-2 h-20 w-48">
+              {[...Array(12)].map((_, i) => (
                 <div
                   key={i}
-                  className={`w-1.5 rounded-full transition-all duration-300 ${
-                    isListening || isSpeaking || loading ? 'bg-white animate-pulse' : 'bg-[#404040]'
-                  }`}
+                  className="w-1.5 bg-white rounded-full transition-all duration-75 ease-out shadow-[0_0_12px_rgba(255,255,255,0.6)]"
                   style={{
-                    height: isListening || isSpeaking || loading ? `${Math.max(20, Math.random() * 64)}px` : '16px',
-                    animationDelay: `${i * 0.15}s`
+                    height: isListening || isSpeaking || loading ? `${Math.max(12, Math.sin(Date.now() / 100 + i) * 36 + 40)}px` : '12px',
+                    animation: isListening || isSpeaking || loading ? `pulse 0.4s infinite alternate` : 'none',
+                    animationDelay: `${i * 0.05}s`
                   }}
                 />
               ))}
@@ -679,7 +674,6 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-3 relative">
-            {/* BOTÃO TRIAL CORRIGIDO PARA ABRIR O CLIENTE DE E-MAIL */}
             <a
               href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Trial%20Support%20or%20Upgrade&body=Olá,%20gostaria%20de%20obter%20suporte%20ou%20fazer%20o%20upgrade%20do%20meu%20plano%20no%20Sona%20BI."
               className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${
@@ -877,7 +871,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark
+          <form onSubmit={input.trim() ? handleSend : openVoiceOverlay} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark
               ? 'bg-[#212121] border-white/5 focus-within:border-white/20'
               : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'
             }`}>
@@ -911,28 +905,19 @@ export default function ChatPage() {
               }`}
             />
 
-            {/* BOTÃO DO MICROFONE (ABRE TELA CHEIA ESTILO CHATGPT) */}
+            {/* BOTÃO INTELIGENTE: SE TIVER TEXTO = ENVIAR | SE TIVER VAZIO = ONDAS DE VOZ */}
             <button
-              type="button"
-              onClick={openVoiceOverlay}
-              disabled={!isConnected || isTrialExpired}
+              type={input.trim() ? "submit" : "button"}
+              onClick={input.trim() ? undefined : openVoiceOverlay}
+              disabled={(!isConnected || isTrialExpired) && !input.trim()}
               className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
-                isDark ? 'text-[#8e8e8e] hover:text-white' : 'text-[#676767] hover:text-black'
+                input.trim() 
+                  ? (isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]')
+                  : (isDark ? 'text-[#8e8e8e] hover:text-white bg-white/5 hover:bg-white/10' : 'text-[#676767] hover:text-black bg-black/5 hover:bg-black/10')
               }`}
-              title="Open Voice Mode"
+              title={input.trim() ? "Send message" : "Open Voice Mode"}
             >
-              <Mic className="w-4 h-4" />
-            </button>
-
-            {/* Send Button */}
-            <button
-              type="submit"
-              disabled={loading || !input.trim() || !isConnected || isTrialExpired}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
-                isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]'
-              }`}
-            >
-              <Send className="w-4 h-4" />
+              {input.trim() ? <Send className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
             </button>
           </form>
 
