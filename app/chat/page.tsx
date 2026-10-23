@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
-import NeuralParticles from '../components/NeuralParticles';
+import VoiceOrb from '../components/VoiceOrb';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -186,7 +186,7 @@ export default function ChatPage() {
     }
   };
 
-  // Função de Voz Feminina Natural sem pausar o microfone
+  // Função de Voz Otimizada para maior agilidade e fluidez
   const handleSpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
 
@@ -197,7 +197,7 @@ export default function ChatPage() {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 0.98;
+    utterance.rate = 1.05; // Levemente mais rápido para agilizar a resposta falada
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
@@ -219,7 +219,7 @@ export default function ChatPage() {
 
     utterance.onend = () => {
       setIsSpeaking(false);
-      setVoiceStatusText('Listening...');
+      setVoiceStatusText('Listening continuously...');
     };
 
     window.speechSynthesis.speak(utterance);
@@ -233,29 +233,26 @@ export default function ChatPage() {
     setLoading(true);
 
     if (fromVoice) {
-      setVoiceStatusText('Analyzing...');
+      setVoiceStatusText('Analyzing data...');
     }
 
     let currentSessionId = activeSessionId;
     try {
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-        const { data: newSession } = await supabase
+        // Salva sessão em background sem bloquear a UI
+        supabase
           .from('chat_sessions')
           .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
           .select()
-          .single();
-        if (newSession) {
-          currentSessionId = newSession.id;
-          setActiveSessionId(newSession.id);
-          setSessions((prev) => [newSession, ...prev]);
-        }
-      }
-
-      if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
-        ]);
+          .single()
+          .then(({ data: newSession }) => {
+            if (newSession) {
+              currentSessionId = newSession.id;
+              setActiveSessionId(newSession.id);
+              setSessions((prev) => [newSession, ...prev]);
+            }
+          });
       }
 
       const response = await fetch('/api/connect-db', {
@@ -266,11 +263,6 @@ export default function ChatPage() {
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Error processing data.';
 
-      if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
-        ]);
-      }
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
       if (fromVoice || isVoiceOverlayOpen) {
@@ -278,6 +270,9 @@ export default function ChatPage() {
       }
     } finally {
       setLoading(false);
+      if (isVoiceOverlayOpen) {
+        setVoiceStatusText('Listening continuously...');
+      }
     }
   };
 
@@ -286,7 +281,6 @@ export default function ChatPage() {
     processAndSendMessage(input, false);
   };
 
-  // RECONHECIMENTO CONTÍNUO (FULL DUPLEX) - O MICROFONE PERMANECE ABERTO
   const startVoiceRecognition = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Your browser does not support voice recognition.');
@@ -301,19 +295,18 @@ export default function ChatPage() {
     recognitionRef.current = new SpeechRecognition();
 
     recognitionRef.current.lang = 'pt-BR';
-    recognitionRef.current.continuous = true; // MANTÉM O MICROFONE ABERTO PARA CONVERSA CONTÍNUA
+    recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = false;
 
     recognitionRef.current.onstart = () => {
       setIsListening(true);
-      setVoiceStatusText('Listening...');
+      setVoiceStatusText('Listening continuously...');
     };
 
     recognitionRef.current.onresult = (event: any) => {
       const lastResultIndex = event.results.length - 1;
       const transcript = event.results[lastResultIndex][0].transcript;
       if (transcript.trim() && !loading) {
-        // Pausa a fala atual se a Sona estiver falando quando o usuário interromper
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         processAndSendMessage(transcript, true);
       }
@@ -326,7 +319,6 @@ export default function ChatPage() {
     };
 
     recognitionRef.current.onend = () => {
-      // Se a tela cheia continuar aberta, reinicia a escuta automaticamente
       if (isVoiceOverlayOpen) {
         try { recognitionRef.current.start(); } catch (e) {}
       }
@@ -372,7 +364,7 @@ export default function ChatPage() {
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
       }`}>
 
-      {/* 🔴 MODAL FULLSCREEN DE VOZ COM PARTÍCULAS EM REDE NEURAL (CONSTELAÇÃO BRANCA) */}
+      {/* 🔴 MODAL FULLSCREEN DE VOZ COM A ESFERA DO CHATGPT */}
       {isVoiceOverlayOpen && (
         <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
           
@@ -381,11 +373,15 @@ export default function ChatPage() {
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
-          {/* Centro: Animação de Partículas em Rede Neural */}
-          <div className="flex flex-col items-center justify-center my-auto space-y-4">
-            <NeuralParticles isActive={isListening || isSpeaking || loading} />
+          {/* Centro: Esfera Luminosa do ChatGPT */}
+          <div className="flex flex-col items-center justify-center my-auto space-y-6">
+            <VoiceOrb
+              isSpeaking={isSpeaking}
+              isListening={isListening}
+              isLoading={loading}
+            />
             
-            <p className="text-sm font-medium text-[#8e8e8e] transition-all">
+            <p className="text-sm font-medium text-[#8e8e8e] tracking-wide transition-all">
               {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening continuously...'}
             </p>
           </div>
