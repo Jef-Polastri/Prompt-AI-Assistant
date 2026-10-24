@@ -63,7 +63,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I am Assis 🤖. Select your database connection in the sidebar to get started.'
+      content: 'Hello! I am Sona 🤖. Select your data source in the sidebar to get started.'
     }
   ]);
 
@@ -78,12 +78,12 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Gerenciamento de Data Sources (Conexões Seguras)
+  // Gerenciamento de Data Sources seguros
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
 
   useEffect(() => {
-    async function initUserAndData() {
+    async function checkUser() {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error || !session) {
@@ -102,7 +102,7 @@ export default function ChatPage() {
         setLoadingSession(false);
       }
     }
-    initUserAndData();
+    checkUser();
   }, []);
 
   const loadSessions = async (userId: string) => {
@@ -120,16 +120,20 @@ export default function ChatPage() {
 
   const loadDataSources = async (userId: string) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('data_sources')
         .select('id, name, connection_type')
         .eq('user_id', userId);
+      
       if (data && data.length > 0) {
         setDataSources(data);
-        setSelectedDataSourceId(data[0].id); // Seleciona a primeira por padrão
+        setSelectedDataSourceId(data[0].id);
+      } else {
+        // Fallback temporário caso não haja nenhuma cadastrada ainda
+        setDataSources([]);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading data sources:', err);
     }
   };
 
@@ -171,7 +175,7 @@ export default function ChatPage() {
     window.location.href = '/login';
   };
 
-  // Função de Voz Feminina Natural
+  // Função de Voz Otimizada para maior agilidade e fluidez
   const handleSpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
 
@@ -186,17 +190,20 @@ export default function ChatPage() {
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
+
     const naturalVoice = voices.find((v) => {
       const isLang = v.lang.startsWith(lang.slice(0, 2));
       const name = v.name.toLowerCase();
       return isLang && (name.includes('google') || name.includes('natural') || name.includes('luciana') || name.includes('brasil') || name.includes('female'));
     }) || voices.find((v) => v.lang.startsWith(lang.slice(0, 2)));
 
-    if (naturalVoice) utterance.voice = naturalVoice;
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
+    }
 
     utterance.onstart = () => {
       setIsSpeaking(true);
-      setVoiceStatusText('Assis is speaking...');
+      setVoiceStatusText('Sona is speaking...');
     };
 
     utterance.onend = () => {
@@ -214,7 +221,9 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
-    if (fromVoice) setVoiceStatusText('Analyzing data...');
+    if (fromVoice) {
+      setVoiceStatusText('Analyzing data...');
+    }
 
     let currentSessionId = activeSessionId;
     try {
@@ -234,7 +243,7 @@ export default function ChatPage() {
           });
       }
 
-      // Requisição para a API segura com o dataSourceId
+      // Requisição unificada para a API segura de backend
       const response = await fetch('/api/ai-query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,7 +259,9 @@ export default function ChatPage() {
       }
     } finally {
       setLoading(false);
-      if (isVoiceOverlayOpen) setVoiceStatusText('Listening continuously...');
+      if (isVoiceOverlayOpen) {
+        setVoiceStatusText('Listening continuously...');
+      }
     }
   };
 
@@ -291,7 +302,9 @@ export default function ChatPage() {
     };
 
     recognitionRef.current.onerror = (e: any) => {
-      if (e.error !== 'no-speech') setIsListening(false);
+      if (e.error !== 'no-speech') {
+        setIsListening(false);
+      }
     };
 
     recognitionRef.current.onend = () => {
@@ -333,24 +346,31 @@ export default function ChatPage() {
     );
   }
 
-  const userEmail = user?.email || 'user@assis.ai';
+  const userEmail = user?.email || 'user@sonar.ai';
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'
+      }`}>
 
       {/* 🔴 MODAL FULLSCREEN DE VOZ COM A ESFERA DO CHATGPT */}
       {isVoiceOverlayOpen && (
         <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
+          
           <div className="w-full flex justify-between items-center text-[#8e8e8e] text-xs">
-            <span>Assis.ai Voice</span>
+            <span>Sona BI Voice</span>
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
           <div className="flex flex-col items-center justify-center my-auto space-y-6">
-            <VoiceOrb isSpeaking={isSpeaking} isListening={isListening} isLoading={loading} />
+            <VoiceOrb
+              isSpeaking={isSpeaking}
+              isListening={isListening}
+              isLoading={loading}
+            />
+            
             <p className="text-sm font-medium text-[#8e8e8e] tracking-wide transition-all">
-              {isSpeaking ? 'Assis is speaking...' : loading ? 'Analyzing database...' : 'Listening continuously...'}
+              {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening continuously...'}
             </p>
           </div>
 
@@ -364,7 +384,9 @@ export default function ChatPage() {
                   startVoiceRecognition();
                 }
               }}
-              className={`p-4 rounded-full transition cursor-pointer shadow-xl ${isListening ? 'bg-white text-black scale-110' : 'bg-[#171717] text-white hover:bg-[#212121]'}`}
+              className={`p-4 rounded-full transition cursor-pointer shadow-xl ${
+                isListening ? 'bg-white text-black scale-110' : 'bg-[#171717] text-white hover:bg-[#212121]'
+              }`}
               title="Toggle Mic"
             >
               {isListening ? <Mic className="w-6 h-6 animate-pulse" /> : <MicOff className="w-6 h-6" />}
@@ -378,40 +400,61 @@ export default function ChatPage() {
               <X className="w-6 h-6" />
             </button>
           </div>
+
         </div>
       )}
 
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
-        <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
+        />
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed md:relative inset-y-0 left-0 z-40
-        ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
-        ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
-        ${isDark ? 'bg-[#171717] border-[#212121]' : 'bg-[#f9f9f9] border-[#e5e5e5]'}
-        transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
-      `}>
+      <aside
+        className={`
+          fixed md:relative inset-y-0 left-0 z-40
+          ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
+          ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
+          ${isDark
+            ? 'bg-[#171717] border-[#212121]'
+            : 'bg-[#f9f9f9] border-[#e5e5e5]'
+          }
+          transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
+        `}
+      >
         <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
+
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
-            <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
-              Assis.ai
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
+                Sona
+              </span>
+            </div>
+
             <button
-              onClick={() => { setIsSidebarOpen(false); setIsMobileMenuOpen(false); }}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'}`}
+              onClick={() => {
+                setIsSidebarOpen(false);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'
+                }`}
               title="Close sidebar"
             >
               <PanelLeftClose className="w-5 h-5" />
             </button>
           </div>
 
+          {/* New Chat Button */}
           <button
             onClick={handleNewChat}
             disabled={isTrialExpired}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer border ${isDark ? 'text-white border-white/5 hover:bg-[#212121]' : 'text-black border-black/5 hover:bg-[#ececec]'}`}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer border ${isDark
+                ? 'text-white border-white/5 hover:bg-[#212121]'
+                : 'text-black border-black/5 hover:bg-[#ececec]'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             <div className="flex items-center gap-2.5">
               <Plus className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
@@ -419,23 +462,30 @@ export default function ChatPage() {
             </div>
           </button>
 
-          {/* Seletor de Conexão Segura (Data Source) */}
-          <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'}`}>
+          {/* Active Data Source Selector */}
+          <div className={`rounded-xl border p-2.5 transition-all duration-200 shrink-0 mt-2 ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'}`}>
             <div className="flex items-center gap-2 mb-1.5">
               <Database className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
               <span className={`text-xs font-medium ${isDark ? 'text-[#c5c5c5]' : 'text-[#424242]'}`}>Active Data Source</span>
             </div>
-            <select
-              value={selectedDataSourceId}
-              onChange={(e) => setSelectedDataSourceId(e.target.value)}
-              className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}
-            >
-              {dataSources.map((ds) => (
-                <option key={ds.id} value={ds.id}>
-                  ⚡ {ds.name} ({ds.connection_type})
-                </option>
-              ))}
-            </select>
+            
+            {dataSources.length > 0 ? (
+              <select
+                value={selectedDataSourceId}
+                onChange={(e) => setSelectedDataSourceId(e.target.value)}
+                className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}
+              >
+                {dataSources.map((ds) => (
+                  <option key={ds.id} value={ds.id}>
+                    ⚡ {ds.name} ({ds.connection_type})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-[11px] text-amber-400 py-1 px-1 bg-amber-500/10 rounded border border-amber-500/20">
+                ⚠️ Nenhum banco cadastrado na tabela <code>data_sources</code>. Insira um registro no Supabase para começar.
+              </div>
+            )}
           </div>
 
           {/* History */}
@@ -445,7 +495,10 @@ export default function ChatPage() {
               <div
                 key={session.id}
                 onClick={() => handleSelectSession(session.id)}
-                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id ? (isDark ? 'bg-[#212121] text-white font-medium' : 'bg-[#e5e5e5] text-black font-medium') : (isDark ? 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white' : 'text-[#555555] hover:bg-[#eaeaea] hover:text-black')}`}
+                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id
+                    ? isDark ? 'bg-[#212121] text-white font-medium' : 'bg-[#e5e5e5] text-black font-medium'
+                    : isDark ? 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white' : 'text-[#555555] hover:bg-[#eaeaea] hover:text-black'
+                  }`}
               >
                 <span className="truncate pr-4">{session.title}</span>
                 <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
@@ -454,13 +507,16 @@ export default function ChatPage() {
               </div>
             ))}
           </div>
+
         </div>
 
         {/* User Footer */}
         <div className={`p-3 border-t relative ${isDark ? 'border-white/5' : 'border-black/5'}`}>
           {isUserMenuOpen && (
-            <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
-              <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'}`}>
+            <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'
+              }`}>
+              <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'
+                }`}>
                 <LogOut className="w-4 h-4 text-red-400" />
                 <span>Log out</span>
               </button>
@@ -468,10 +524,12 @@ export default function ChatPage() {
           )}
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-left ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#eaeaea]'}`}
+            className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-left ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#eaeaea]'
+              }`}
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'
+                }`}>
                 {userEmail.charAt(0).toUpperCase()}
               </div>
               <span className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>{userEmail}</span>
@@ -483,11 +541,15 @@ export default function ChatPage() {
 
       {/* MAIN CONTENT */}
       <main className={`relative flex-1 flex flex-col h-full overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-        <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
+
+        {/* Header */}
+        <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'
+          }`}>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+              className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                }`}
               title="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -496,7 +558,8 @@ export default function ChatPage() {
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+                className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                  }`}
                 title="Show sidebar"
               >
                 <PanelLeft className="w-5 h-5" />
@@ -504,62 +567,87 @@ export default function ChatPage() {
             )}
 
             <div className={`flex items-center gap-1.5 font-medium text-sm md:text-base px-2 py-1 ${isDark ? 'text-white' : 'text-black'}`}>
-              <span>Assis.ai BI Agent</span>
+              <span>Sona BI Agent</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 relative">
             <a
-              href="mailto:jefersonpollastri@gmail.com?subject=Assis.ai%20-%20Support%20or%20Upgrade"
-              className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${isTrialExpired ? 'bg-red-500/10 text-red-400 border-red-500/20' : (isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5')}`}
+              href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Trial%20Support%20or%20Upgrade&body=Olá,%20gostaria%20de%20obter%20suporte%20ou%20fazer%20o%20upgrade%20do%20meu%20plano%20no%20Sona%20BI."
+              className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${
+                isTrialExpired 
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                  : isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5'
+              }`}
+              title="Clique para enviar e-mail de suporte/upgrade"
             >
-              {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
+              {isTrialExpired ? 'Trial Expired (Contact Support)' : 'Trial (7 days)'}
             </a>
 
+            {/* Settings & Theme Selector */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'
+                  }`}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
               </button>
 
               {isSettingsOpen && (
-                <div className={`absolute right-0 mt-2 w-48 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+                <div className={`absolute right-0 mt-2 w-48 border rounded-2xl p-2 shadow-2xl z-50 transition-all ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                  }`}>
+                  <p className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#8e8e8e]'}`}>
+                    Appearance
+                  </p>
+
                   <button
                     onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-[#f0f0f0] text-black'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-[#f0f0f0] text-black'
+                      }`}
                   >
-                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-purple-400" /><span>Dark Mode</span></div>
+                    <div className="flex items-center gap-2">
+                      <Moon className="w-4 h-4 text-purple-400" />
+                      <span>Dark Mode</span>
+                    </div>
                     {isDark && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                   </button>
 
                   <button
                     onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-[#e5e5e5] font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-[#e5e5e5] font-semibold text-black' : 'hover:bg-[#212121] text-white'
+                      }`}
                   >
-                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-amber-500" /><span>Light Mode</span></div>
+                    <div className="flex items-center gap-2">
+                      <Sun className="w-4 h-4 text-amber-500" />
+                      <span>Light Mode</span>
+                    </div>
                     {!isDark && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                   </button>
                 </div>
               )}
             </div>
+
           </div>
         </header>
 
         {/* Scrollable Center Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
+
           <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
+
             {messages.length <= 1 ? (
               <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
+
                 <h2 className={`text-2xl sm:text-3xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#0d0d0d]'}`}>
                   Ready when you are.
                 </h2>
                 <p className={`text-xs max-w-md ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                  Ask any question about your data or use the Voice Mode for real-time natural interaction.
+                  Select a suggested query below or ask any question about your sales, inventory, and customers in plain English or Portuguese.
                 </p>
 
+                {/* English / Portuguese Prompt Suggestions */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
                   {[
                     "📈 What was the total revenue this month?",
@@ -571,7 +659,10 @@ export default function ChatPage() {
                       key={idx}
                       disabled={isTrialExpired}
                       onClick={() => processAndSendMessage(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
-                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${isDark ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121]' : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0]'}`}
+                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${isDark
+                          ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121] hover:border-white/20'
+                          : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0] hover:border-black/15 shadow-sm'
+                        } ${isTrialExpired ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                       {suggestion}
                     </button>
@@ -583,17 +674,61 @@ export default function ChatPage() {
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
+                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'
+                        }`}>
                         {msg.content}
                       </div>
                     ) : (
                       <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className={`mb-4 leading-relaxed text-[15px] ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>{children}</p>,
+                            code({ node, inline, className, children, ...props }: any) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <div className={`my-4 overflow-hidden rounded-xl border ${isDark ? 'bg-[#171717] border-white/10' : 'bg-[#f9f9f9] border-black/10'
+                                  }`}>
+                                  <div className={`px-4 py-2 text-[11px] font-mono uppercase flex justify-between items-center ${isDark ? 'bg-[#212121] text-[#8e8e8e]' : 'bg-[#e5e5e5] text-[#676767]'
+                                    }`}>
+                                    <span>{match[1]}</span>
+                                  </div>
+                                  <pre className={`p-4 overflow-x-auto text-xs font-mono leading-relaxed ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'
+                                    }`}>
+                                    <code>{String(children).replace(/\n$/, '')}</code>
+                                  </pre>
+                                </div>
+                              ) : (
+                                <code className={`px-1.5 py-0.5 rounded text-xs ${isDark ? 'bg-[#212121] text-amber-200' : 'bg-[#e5e5e5] text-amber-800'
+                                  }`} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+
                         <div className={`flex items-center gap-1 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 rounded transition hover:opacity-80" title="Copy">
-                            {copiedIndex === index ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          <button
+                            onClick={() => handleCopy(msg.content, index)}
+                            className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
+                              }`}
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
                           </button>
-                          <button onClick={() => handleSpeak(msg.content)} className="p-1 rounded transition hover:opacity-80" title="Read aloud">
+
+                          <button
+                            onClick={() => handleSpeak(msg.content)}
+                            className={`p-1 rounded transition ${isDark ? 'hover:text-white' : 'hover:text-black'
+                              }`}
+                            title="Read aloud"
+                          >
                             <Volume2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -605,17 +740,39 @@ export default function ChatPage() {
                 {loading && (
                   <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Assis is analyzing the data...</span>
+                    <span className="text-xs">Sona is analyzing the data...</span>
                   </div>
                 )}
               </div>
             )}
+
           </div>
         </div>
 
         {/* Input Bar */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-          <form onSubmit={input.trim() ? handleSend : openVoiceOverlay} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
+
+          {isTrialExpired && (
+            <div className="p-3 mb-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between gap-2 text-center">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400 font-medium">
+                  Your 7-day free trial has expired.
+                </p>
+              </div>
+              <a
+                href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Trial%20Upgrade&body=Olá,%20gostaria%20de%20fazer%20o%20upgrade%20do%20meu%20plano%20no%20Sona%20BI."
+                className="text-xs text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg transition"
+              >
+                Upgrade Plan
+              </a>
+            </div>
+          )}
+
+          <form onSubmit={input.trim() ? handleSend : openVoiceOverlay} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark
+              ? 'bg-[#212121] border-white/5 focus-within:border-white/20'
+              : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'
+            }`}>
             <textarea
               value={input}
               onChange={(e) => {
@@ -632,17 +789,29 @@ export default function ChatPage() {
                   }
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : selectedDataSourceId ? "Ask Assis about your data..." : "Select a data source in the sidebar..."}
+              placeholder={
+                isTrialExpired
+                  ? "Your 7-day trial period has expired."
+                  : selectedDataSourceId
+                    ? "Ask Sona about your data..."
+                    : "Select a data source in the sidebar..."
+              }
               disabled={!selectedDataSourceId || isTrialExpired}
               rows={1}
-              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}
+              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${
+                isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
+              }`}
             />
 
             <button
               type={input.trim() ? "submit" : "button"}
               onClick={input.trim() ? undefined : openVoiceOverlay}
               disabled={(!selectedDataSourceId || isTrialExpired) && !input.trim()}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${input.trim() ? (isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]') : (isDark ? 'text-[#8e8e8e] hover:text-white bg-white/5' : 'text-[#676767] hover:text-black bg-black/5')}`}
+              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
+                input.trim() 
+                  ? (isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]')
+                  : (isDark ? 'text-[#8e8e8e] hover:text-white bg-white/5 hover:bg-white/10' : 'text-[#676767] hover:text-black bg-black/5 hover:bg-black/10')
+              }`}
               title={input.trim() ? "Send message" : "Open Voice Mode"}
             >
               {input.trim() ? <Send className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
@@ -650,9 +819,10 @@ export default function ChatPage() {
           </form>
 
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
-            Assis.ai can make mistakes. Verify important data.
+            Sona can make mistakes. Verify important data.
           </p>
         </div>
+
       </main>
     </div>
   );
