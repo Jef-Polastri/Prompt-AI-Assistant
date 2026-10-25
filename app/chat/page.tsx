@@ -21,12 +21,6 @@ interface ChatSession {
   created_at: string;
 }
 
-interface DataSource {
-  id: string;
-  name: string;
-  connection_type: string;
-}
-
 const checkTrialExpired = (createdAtString: string) => {
   if (!createdAtString) return false;
   const createdAt = new Date(createdAtString);
@@ -63,12 +57,13 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I am Sona 🤖. Select your data source in the sidebar to get started.'
+      content: 'Hello! I am Sona 🤖. Select your database type and provide your credentials in the sidebar to get started.'
     }
   ]);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isDbMenuOpen, setIsDbMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -78,9 +73,17 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Gerenciamento de Data Sources seguros
-  const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
+  const [dbType, setDbType] = useState('postgres');
+  const [dbConfig, setDbConfig] = useState({
+    host: 'localhost',
+    port: '5432',
+    database: '',
+    user: '',
+    password: ''
+  });
+  const [isConnected, setIsConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<any>(null);
 
   useEffect(() => {
     async function checkUser() {
@@ -95,7 +98,6 @@ export default function ChatPage() {
           setIsTrialExpired(checkTrialExpired(session.user.created_at));
         }
         loadSessions(session.user.id);
-        loadDataSources(session.user.id);
       } catch (err) {
         window.location.href = '/login';
       } finally {
@@ -115,25 +117,6 @@ export default function ChatPage() {
       if (data) setSessions(data);
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const loadDataSources = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('data_sources')
-        .select('id, name, connection_type')
-        .eq('user_id', userId);
-      
-      if (data && data.length > 0) {
-        setDataSources(data);
-        setSelectedDataSourceId(data[0].id);
-      } else {
-        // Fallback temporário caso não haja nenhuma cadastrada ainda
-        setDataSources([]);
-      }
-    } catch (err) {
-      console.error('Error loading data sources:', err);
     }
   };
 
@@ -175,6 +158,34 @@ export default function ChatPage() {
     window.location.href = '/login';
   };
 
+  const handleConnectDb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isTrialExpired) return;
+    setConnecting(true);
+    const currentConnectionData = { type: dbType, ...dbConfig };
+
+    try {
+      const response = await fetch('/api/connect-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentConnectionData)
+      });
+      if (response.ok) {
+        setIsConnected(true);
+        setActiveConnection(currentConnectionData);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `✅ Successfully connected to **${dbType.toUpperCase()}** (${dbConfig.database})!` }
+        ]);
+        setIsMobileMenuOpen(false);
+      } else {
+        alert('Failed to connect to the database.');
+      }
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   // Função de Voz Otimizada para maior agilidade e fluidez
   const handleSpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
@@ -186,7 +197,7 @@ export default function ChatPage() {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
-    utterance.rate = 1.05;
+    utterance.rate = 1.05; // Levemente mais rápido para agilizar a resposta falada
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
@@ -215,7 +226,7 @@ export default function ChatPage() {
   };
 
   const processAndSendMessage = async (userMessage: string, fromVoice = false) => {
-    if (!userMessage.trim() || loading || !selectedDataSourceId || isTrialExpired) return;
+    if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
@@ -229,9 +240,10 @@ export default function ChatPage() {
     try {
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
+        // Salva sessão em background sem bloquear a UI
         supabase
           .from('chat_sessions')
-          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: selectedDataSourceId }])
+          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
           .select()
           .single()
           .then(({ data: newSession }) => {
@@ -243,11 +255,10 @@ export default function ChatPage() {
           });
       }
 
-      // Requisição unificada para a API segura de backend
-      const response = await fetch('/api/ai-query', {
+      const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage, dataSourceId: selectedDataSourceId })
+        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
       });
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Error processing data.';
@@ -362,6 +373,7 @@ export default function ChatPage() {
             <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
           </div>
 
+          {/* Centro: Esfera Luminosa do ChatGPT */}
           <div className="flex flex-col items-center justify-center my-auto space-y-6">
             <VoiceOrb
               isSpeaking={isSpeaking}
@@ -374,6 +386,7 @@ export default function ChatPage() {
             </p>
           </div>
 
+          {/* Rodapé do Modal */}
           <div className="w-full max-w-xs flex items-center justify-center gap-6 pb-6">
             <button
               onClick={() => {
@@ -462,29 +475,121 @@ export default function ChatPage() {
             </div>
           </button>
 
-          {/* Active Data Source Selector */}
-          <div className={`rounded-xl border p-2.5 transition-all duration-200 shrink-0 mt-2 ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'}`}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Database className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
-              <span className={`text-xs font-medium ${isDark ? 'text-[#c5c5c5]' : 'text-[#424242]'}`}>Active Data Source</span>
-            </div>
-            
-            {dataSources.length > 0 ? (
-              <select
-                value={selectedDataSourceId}
-                onChange={(e) => setSelectedDataSourceId(e.target.value)}
-                className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}
-              >
-                {dataSources.map((ds) => (
-                  <option key={ds.id} value={ds.id}>
-                    ⚡ {ds.name} ({ds.connection_type})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-[11px] text-amber-400 py-1 px-1 bg-amber-500/10 rounded border border-amber-500/20">
-                ⚠️ Nenhum banco cadastrado na tabela <code>data_sources</code>. Insira um registro no Supabase para começar.
+          {/* Database Connection */}
+          <div className={`rounded-xl border overflow-hidden transition-all duration-200 shrink-0 mt-2 ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'
+            }`}>
+            <button
+              onClick={() => setIsDbMenuOpen(!isDbMenuOpen)}
+              className={`w-full flex items-center justify-between p-2.5 text-left transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#e5e5e5]'
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <Database className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
+                <span className={`text-xs font-medium ${isDark ? 'text-[#c5c5c5]' : 'text-[#424242]'}`}>Database Connection</span>
               </div>
+              <div className="flex items-center gap-2">
+                {isConnected && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDbMenuOpen ? 'rotate-180' : ''} ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
+              </div>
+            </button>
+
+            {isDbMenuOpen && (
+              <form onSubmit={handleConnectDb} className={`p-3 pt-1 space-y-2 border-t mt-1 ${isDark ? 'border-white/5' : 'border-black/5'}`}>
+                <div>
+                  <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>DBMS</label>
+                  <select
+                    value={dbType}
+                    disabled={isTrialExpired}
+                    onChange={(e) => setDbType(e.target.value)}
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
+                  >
+                    <option value="postgres">PostgreSQL / Supabase</option>
+                    <option value="mysql">MySQL</option>
+                    <option value="sqlserver">SQL Server</option>
+                    <option value="oracle">Oracle Database</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="col-span-2">
+                    <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>Host</label>
+                    <input
+                      type="text"
+                      disabled={isTrialExpired}
+                      value={dbConfig.host}
+                      onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                        }`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>Port</label>
+                    <input
+                      type="text"
+                      disabled={isTrialExpired}
+                      value={dbConfig.port}
+                      onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                        }`}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>Database Name</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.database}
+                    onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
+                    placeholder="e.g. company_db"
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>Username</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.user}
+                    onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
+                    placeholder="postgres"
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={`text-[10px] block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>Password</label>
+                  <input
+                    type="password"
+                    disabled={isTrialExpired}
+                    value={dbConfig.password}
+                    onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
+                    placeholder="••••••••"
+                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'
+                      }`}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={connecting || isTrialExpired}
+                  className={`w-full text-xs font-medium py-2 rounded-lg transition cursor-pointer mt-1 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-[#2f2f2f] hover:bg-[#383838] text-white' : 'bg-[#e0e0e0] hover:bg-[#d5d5d5] text-black'
+                    }`}
+                >
+                  {connecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {isConnected ? 'Reconnect' : 'Connect DBMS'}
+                </button>
+              </form>
             )}
           </div>
 
@@ -783,7 +888,7 @@ export default function ChatPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && selectedDataSourceId && !isTrialExpired) {
+                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
                     handleSend(e as any);
                     e.currentTarget.style.height = 'auto';
                   }
@@ -792,11 +897,11 @@ export default function ChatPage() {
               placeholder={
                 isTrialExpired
                   ? "Your 7-day trial period has expired."
-                  : selectedDataSourceId
+                  : isConnected
                     ? "Ask Sona about your data..."
-                    : "Select a data source in the sidebar..."
+                    : "Connect DBMS on the sidebar first..."
               }
-              disabled={!selectedDataSourceId || isTrialExpired}
+              disabled={!isConnected || isTrialExpired}
               rows={1}
               className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${
                 isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'
@@ -806,7 +911,7 @@ export default function ChatPage() {
             <button
               type={input.trim() ? "submit" : "button"}
               onClick={input.trim() ? undefined : openVoiceOverlay}
-              disabled={(!selectedDataSourceId || isTrialExpired) && !input.trim()}
+              disabled={(!isConnected || isTrialExpired) && !input.trim()}
               className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${
                 input.trim() 
                   ? (isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]')
