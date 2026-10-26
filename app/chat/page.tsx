@@ -203,7 +203,7 @@ export default function ChatPage() {
         ]);
       }
 
-      // 3. Chama a API de backend para processar os dados
+      // 3. Chama a API de backend para processar os dados do banco
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
