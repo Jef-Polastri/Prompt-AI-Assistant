@@ -4,11 +4,10 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon, Mic, MicOff, Volume2, Activity
+  Settings, Sun, Moon
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
-import VoiceOrb from '../components/VoiceOrb';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -21,12 +20,6 @@ interface ChatSession {
   created_at: string;
 }
 
-interface DataSource {
-  id: string;
-  name: string;
-  connection_type: string;
-}
-
 const checkTrialExpired = (createdAtString: string) => {
   if (!createdAtString) return false;
   const createdAt = new Date(createdAtString);
@@ -36,34 +29,19 @@ const checkTrialExpired = (createdAtString: string) => {
   return diffDays > 7;
 };
 
-const detectLanguage = (text: string): 'pt-BR' | 'en-US' => {
-  const portugueseIndicators = /[áàâãéèêíïóôõöúçñ]/i;
-  const commonPtWords = /\b(que|como|para|com|você|voce|qual|quais|foram|vendas|faturamento|estoque|clientes|dia|mês|mes|ano)\b/i;
-  
-  if (portugueseIndicators.test(text) || commonPtWords.test(text)) {
-    return 'pt-BR';
-  }
-  return 'en-US';
-};
-
 export default function ChatPage() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Estados do Modo de Voz Contínuo
-  const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceStatusText, setVoiceStatusText] = useState('Listening...');
-
-  const recognitionRef = useRef<any>(null);
+  
+  // Estado para controlar a abertura do modal de conexão via Configurações
+  const [isDbConfigModalOpen, setIsDbConfigModalOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I am Sona 🤖. Select your data source in the sidebar to get started.'
+      content: 'Hello! I am Prompt. Configure your database connection in the Settings menu (gear icon) to get started.'
     }
   ]);
 
@@ -78,9 +56,17 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Gerenciamento de Data Sources seguros
-  const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
+  const [dbType, setDbType] = useState('postgres');
+  const [dbConfig, setDbConfig] = useState({
+    host: 'localhost',
+    port: '5432',
+    database: '',
+    user: '',
+    password: ''
+  });
+  const [isConnected, setIsConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<any>(null);
 
   useEffect(() => {
     async function checkUser() {
@@ -95,7 +81,6 @@ export default function ChatPage() {
           setIsTrialExpired(checkTrialExpired(session.user.created_at));
         }
         loadSessions(session.user.id);
-        loadDataSources(session.user.id);
       } catch (err) {
         window.location.href = '/login';
       } finally {
@@ -118,53 +103,17 @@ export default function ChatPage() {
     }
   };
 
-  const loadDataSources = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('data_sources')
-        .select('id, name, connection_type')
-        .eq('user_id', userId);
-      
-      if (data && data.length > 0) {
-        setDataSources(data);
-        setSelectedDataSourceId(data[0].id);
-      }
-    } catch (err) {
-      console.error('Error loading data sources:', err);
-    }
-  };
-
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoading(true);
     setIsMobileMenuOpen(false);
     try {
-      // Busca as mensagens da sessão selecionada (tentando session_id)
-      let { data, error } = await supabase
+      const { data } = await supabase
         .from('chat_messages')
         .select('role, content')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
-
-      // Fallback caso a tabela use chat_session_id
-      if (error || !data || data.length === 0) {
-        const res = await supabase
-          .from('chat_messages')
-          .select('role, content')
-          .eq('chat_session_id', sessionId)
-          .order('created_at', { ascending: true });
-        data = res.data;
-      }
-
-      if (data && data.length > 0) {
-        setMessages(data as Message[]);
-      } else {
-        setMessages([
-          { role: 'assistant', content: 'Esta sessão está vazia ou não possui mensagens salvas.' }
-        ]);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar mensagens:', err);
+      if (data && data.length > 0) setMessages(data as Message[]);
     } finally {
       setLoading(false);
     }
@@ -192,170 +141,76 @@ export default function ChatPage() {
     window.location.href = '/login';
   };
 
-  const handleSpeak = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-
-    window.speechSynthesis.cancel();
-
-    const cleanText = text.replace(/[*_#`~]/g, '');
-    const lang = detectLanguage(cleanText);
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = lang;
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find((v) => {
-      const isLang = v.lang.startsWith(lang.slice(0, 2));
-      const name = v.name.toLowerCase();
-      return isLang && (name.includes('google') || name.includes('natural') || name.includes('luciana') || name.includes('brasil') || name.includes('female'));
-    }) || voices.find((v) => v.lang.startsWith(lang.slice(0, 2)));
-
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setVoiceStatusText('Sona is speaking...');
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setVoiceStatusText('Listening continuously...');
-    };
-
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const processAndSendMessage = async (userMessage: string, fromVoice = false) => {
-    if (!userMessage.trim() || loading || !selectedDataSourceId || isTrialExpired) return;
-
-    setInput('');
-    const newMessagesState = [...messages, { role: 'user' as const, content: userMessage }];
-    setMessages(newMessagesState);
-    setLoading(true);
-
-    if (fromVoice) {
-      setVoiceStatusText('Analyzing data...');
-    }
+  const handleConnectDb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isTrialExpired) return;
+    setConnecting(true);
+    const currentConnectionData = { type: dbType, ...dbConfig };
 
     try {
-      let currentSessionId = activeSessionId;
-
-      // Se não há sessão ativa, cria uma nova no Supabase
-      if (!currentSessionId && user) {
-        const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-        const { data: newSession, error: sessionError } = await supabase
-          .from('chat_sessions')
-          .insert([{ user_id: user.id, title: titleSnippet }])
-          .select()
-          .single();
-
-        if (newSession && !sessionError) {
-          currentSessionId = newSession.id;
-          setActiveSessionId(newSession.id);
-          setSessions((prev) => [newSession, ...prev]);
-        }
-      }
-
-      // Requisição unificada para a API segura de backend
-      const response = await fetch('/api/ai-query', {
+      const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage, dataSourceId: selectedDataSourceId })
+        body: JSON.stringify(currentConnectionData)
+      });
+      if (response.ok) {
+        setIsConnected(true);
+        setActiveConnection(currentConnectionData);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `✅ Successfully connected to **${dbType.toUpperCase()}** (${dbConfig.database})!` }
+        ]);
+        setIsDbConfigModalOpen(false);
+      } else {
+        alert('Failed to connect to the database.');
+      }
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const processAndSendMessage = async (userMessage: string) => {
+    if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
+
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
+
+    let currentSessionId = activeSessionId;
+    try {
+      if (!currentSessionId && user) {
+        const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
+        supabase
+          .from('chat_sessions')
+          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
+          .select()
+          .single()
+          .then(({ data: newSession }) => {
+            if (newSession) {
+              currentSessionId = newSession.id;
+              setActiveSessionId(newSession.id);
+              setSessions((prev) => [newSession, ...prev]);
+            }
+          });
+      }
+
+      const response = await fetch('/api/connect-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
       });
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Error processing data.';
 
-      const updatedMessages = [...newMessagesState, { role: 'assistant' as const, content: assistantReply }];
-      setMessages(updatedMessages);
-
-      // Salva as mensagens no histórico se houver sessão ativa
-      if (currentSessionId) {
-        await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, role: 'user', content: userMessage },
-          { session_id: currentSessionId, role: 'assistant', content: assistantReply }
-        ]);
-      }
-
-      if (fromVoice || isVoiceOverlayOpen) {
-        handleSpeak(assistantReply);
-      }
+      setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
     } finally {
       setLoading(false);
-      if (isVoiceOverlayOpen) {
-        setVoiceStatusText('Listening continuously...');
-      }
     }
   };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    processAndSendMessage(input, false);
-  };
-
-  const startVoiceRecognition = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Your browser does not support voice recognition.');
-      return;
-    }
-
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-
-    recognitionRef.current.lang = 'pt-BR';
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = false;
-
-    recognitionRef.current.onstart = () => {
-      setIsListening(true);
-      setVoiceStatusText('Listening continuously...');
-    };
-
-    recognitionRef.current.onresult = (event: any) => {
-      const lastResultIndex = event.results.length - 1;
-      const transcript = event.results[lastResultIndex][0].transcript;
-      if (transcript.trim() && !loading) {
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-        processAndSendMessage(transcript, true);
-      }
-    };
-
-    recognitionRef.current.onerror = (e: any) => {
-      if (e.error !== 'no-speech') {
-        setIsListening(false);
-      }
-    };
-
-    recognitionRef.current.onend = () => {
-      if (isVoiceOverlayOpen) {
-        try { recognitionRef.current.start(); } catch (e) {}
-      }
-    };
-
-    recognitionRef.current.start();
-  };
-
-  const openVoiceOverlay = () => {
-    setIsVoiceOverlayOpen(true);
-    startVoiceRecognition();
-  };
-
-  const closeVoiceOverlay = () => {
-    setIsVoiceOverlayOpen(false);
-    setIsListening(false);
-    setIsSpeaking(false);
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    if (recognitionRef.current) {
-      recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
-    }
+    processAndSendMessage(input);
   };
 
   const handleCopy = (text: string, index: number) => {
@@ -378,44 +233,116 @@ export default function ChatPage() {
   return (
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
-      {/* 🔴 MODAL FULLSCREEN DE VOZ */}
-      {isVoiceOverlayOpen && (
-        <div className="fixed inset-0 z-50 bg-[#000000] flex flex-col justify-between items-center p-6 md:p-12 animate-in fade-in duration-300">
-          <div className="w-full flex justify-between items-center text-[#8e8e8e] text-xs">
-            <span>Sona BI Voice</span>
-            <span className="font-mono text-[11px] tracking-wider uppercase">{voiceStatusText}</span>
-          </div>
+      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS (VIA ENGRENAGEM) */}
+      {isDbConfigModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+            
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-base font-semibold">Database Connection</h3>
+              </div>
+              <button
+                onClick={() => setIsDbConfigModalOpen(false)}
+                className={`p-1.5 rounded-full transition ${isDark ? 'hover:bg-[#212121] text-[#8e8e8e]' : 'hover:bg-gray-100 text-gray-500'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-          <div className="flex flex-col items-center justify-center my-auto space-y-6">
-            <VoiceOrb isSpeaking={isSpeaking} isListening={isListening} isLoading={loading} />
-            <p className="text-sm font-medium text-[#8e8e8e] tracking-wide transition-all">
-              {isSpeaking ? 'Sona is speaking...' : loading ? 'Analyzing database...' : 'Listening continuously...'}
-            </p>
-          </div>
+            <form onSubmit={handleConnectDb} className="space-y-3">
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>DBMS</label>
+                <select
+                  value={dbType}
+                  disabled={isTrialExpired}
+                  onChange={(e) => setDbType(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                >
+                  <option value="postgres">PostgreSQL / Supabase</option>
+                  <option value="mysql">MySQL</option>
+                  <option value="sqlserver">SQL Server</option>
+                  <option value="oracle">Oracle Database</option>
+                </select>
+              </div>
 
-          <div className="w-full max-w-xs flex items-center justify-center gap-6 pb-6">
-            <button
-              onClick={() => {
-                if (isListening) {
-                  if (recognitionRef.current) recognitionRef.current.stop();
-                  setIsListening(false);
-                } else {
-                  startVoiceRecognition();
-                }
-              }}
-              className={`p-4 rounded-full transition cursor-pointer shadow-xl ${isListening ? 'bg-white text-black scale-110' : 'bg-[#171717] text-white hover:bg-[#212121]'}`}
-              title="Toggle Mic"
-            >
-              {isListening ? <Mic className="w-6 h-6 animate-pulse" /> : <MicOff className="w-6 h-6" />}
-            </button>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Host</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.host}
+                    onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
+                    className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Port</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.port}
+                    onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
+                    className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                    required
+                  />
+                </div>
+              </div>
 
-            <button
-              onClick={closeVoiceOverlay}
-              className="p-4 rounded-full bg-[#171717] hover:bg-[#212121] text-white transition cursor-pointer border border-white/10 shadow-xl"
-              title="Close Voice Mode"
-            >
-              <X className="w-6 h-6" />
-            </button>
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Database Name</label>
+                <input
+                  type="text"
+                  disabled={isTrialExpired}
+                  value={dbConfig.database}
+                  onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
+                  placeholder="e.g. company_db"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Username</label>
+                <input
+                  type="text"
+                  disabled={isTrialExpired}
+                  value={dbConfig.user}
+                  onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
+                  placeholder="postgres"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Password</label>
+                <input
+                  type="password"
+                  disabled={isTrialExpired}
+                  value={dbConfig.password}
+                  onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
+                  placeholder="••••••••"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={connecting || isTrialExpired}
+                  className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                >
+                  {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isConnected ? 'Reconnect Database' : 'Connect DBMS'}
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}
@@ -425,7 +352,7 @@ export default function ChatPage() {
         <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar limpa (sem formulário de banco de dados) */}
       <aside className={`
         fixed md:relative inset-y-0 left-0 z-40
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
@@ -434,9 +361,10 @@ export default function ChatPage() {
         transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
       `}>
         <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
+
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
-              Sona
+              Prompt.ai
             </span>
             <button
               onClick={() => { setIsSidebarOpen(false); setIsMobileMenuOpen(false); }}
@@ -458,32 +386,6 @@ export default function ChatPage() {
             </div>
           </button>
 
-          {/* Seletor Data Source */}
-          <div className={`rounded-xl border p-2.5 transition-all duration-200 shrink-0 mt-2 ${isDark ? 'bg-[#212121]/50 border-white/5' : 'bg-[#f0f0f0] border-black/5'}`}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Database className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
-              <span className={`text-xs font-medium ${isDark ? 'text-[#c5c5c5]' : 'text-[#424242]'}`}>Active Data Source</span>
-            </div>
-            
-            {dataSources.length > 0 ? (
-              <select
-                value={selectedDataSourceId}
-                onChange={(e) => setSelectedDataSourceId(e.target.value)}
-                className={`w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}
-              >
-                {dataSources.map((ds) => (
-                  <option key={ds.id} value={ds.id}>
-                    ⚡ {ds.name} ({ds.connection_type})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-[11px] text-amber-400 py-1 px-1 bg-amber-500/10 rounded border border-amber-500/20">
-                ⚠️ Cadastre uma fonte na tabela <code>data_sources</code>.
-              </div>
-            )}
-          </div>
-
           {/* History */}
           <div className="flex-1 overflow-y-auto space-y-1 pt-2 pr-1">
             <p className={`px-2 py-1 text-[11px] font-semibold ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>Recent Queries</p>
@@ -500,6 +402,7 @@ export default function ChatPage() {
               </div>
             ))}
           </div>
+
         </div>
 
         {/* User Footer */}
@@ -529,6 +432,8 @@ export default function ChatPage() {
 
       {/* MAIN CONTENT */}
       <main className={`relative flex-1 flex flex-col h-full overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+
+        {/* Header */}
         <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
           <div className="flex items-center gap-2">
             <button
@@ -549,19 +454,21 @@ export default function ChatPage() {
               </button>
             )}
 
-            <div className={`flex items-center gap-1.5 font-medium text-sm md:text-base px-2 py-1 ${isDark ? 'text-white' : 'text-black'}`}>
-              <span>Sona BI Agent</span>
+            <div className={`flex items-center gap-2 font-medium text-sm md:text-base px-2 py-1 ${isDark ? 'text-white' : 'text-black'}`}>
+              <span>Chat</span>
+              {isConnected && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Database Connected" />}
             </div>
           </div>
 
           <div className="flex items-center gap-3 relative">
             <a
-              href="mailto:jefersonpollastri@gmail.com?subject=Sona%20BI%20-%20Support"
+              href="mailto:jefersonpollastri@gmail.com?subject=Prompt.ai%20-%20Support"
               className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${isTrialExpired ? 'bg-red-500/10 text-red-400 border-red-500/20' : (isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5')}`}
             >
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </a>
 
+            {/* Settings & Theme Selector Menu */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -572,10 +479,26 @@ export default function ChatPage() {
               </button>
 
               {isSettingsOpen && (
-                <div className={`absolute right-0 mt-2 w-48 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+                <div className={`absolute right-0 mt-2 w-52 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+                  
+                  {/* Opção para abrir o modal de Conexão com Banco */}
+                  <button
+                    onClick={() => { setIsDbConfigModalOpen(true); setIsSettingsOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`}
+                  >
+                    <Database className="w-4 h-4 text-emerald-500" />
+                    <span>Database Connection</span>
+                  </button>
+
+                  <div className={`h-[1px] my-1 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+
+                  <p className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-400'}`}>
+                    Appearance
+                  </p>
+
                   <button
                     onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-[#f0f0f0] text-black'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-gray-100 text-black'}`}
                   >
                     <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-purple-400" /><span>Dark Mode</span></div>
                     {isDark && <Check className="w-3.5 h-3.5 text-emerald-400" />}
@@ -583,7 +506,7 @@ export default function ChatPage() {
 
                   <button
                     onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-[#e5e5e5] font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-gray-100 font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
                   >
                     <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-amber-500" /><span>Light Mode</span></div>
                     {!isDark && <Check className="w-3.5 h-3.5 text-emerald-600" />}
@@ -591,6 +514,7 @@ export default function ChatPage() {
                 </div>
               )}
             </div>
+
           </div>
         </header>
 
@@ -603,7 +527,7 @@ export default function ChatPage() {
                   Ready when you are.
                 </h2>
                 <p className={`text-xs max-w-md ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                  Ask any question about your data or use Voice Mode.
+                  Configure your database in settings and ask any question about your data.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
@@ -615,9 +539,9 @@ export default function ChatPage() {
                   ].map((suggestion, idx) => (
                     <button
                       key={idx}
-                      disabled={isTrialExpired}
+                      disabled={isTrialExpired || !isConnected}
                       onClick={() => processAndSendMessage(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
-                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer ${isDark ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121]' : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0]'}`}
+                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121]' : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0]'}`}
                     >
                       {suggestion}
                     </button>
@@ -639,9 +563,6 @@ export default function ChatPage() {
                           <button onClick={() => handleCopy(msg.content, index)} className="p-1 rounded transition hover:opacity-80" title="Copy">
                             {copiedIndex === index ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                           </button>
-                          <button onClick={() => handleSpeak(msg.content)} className="p-1 rounded transition hover:opacity-80" title="Read aloud">
-                            <Volume2 className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     )}
@@ -651,7 +572,7 @@ export default function ChatPage() {
                 {loading && (
                   <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Sona is analyzing the data...</span>
+                    <span className="text-xs">Prompt.ai is analyzing the data...</span>
                   </div>
                 )}
               </div>
@@ -659,9 +580,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar */}
+        {/* Input Bar (Sem botão de microfone) */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-          <form onSubmit={input.trim() ? handleSend : openVoiceOverlay} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
+          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
               value={input}
               onChange={(e) => {
@@ -672,31 +593,30 @@ export default function ChatPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && selectedDataSourceId && !isTrialExpired) {
+                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
                     handleSend(e as any);
-                    e.currentTarget.style.height = 'auto';
+                    (e.target as HTMLTextAreaElement).style.height = 'auto';
                   }
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : selectedDataSourceId ? "Ask Sona about your data..." : "Select a data source in the sidebar..."}
-              disabled={!selectedDataSourceId || isTrialExpired}
+              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Sona about your data..." : "Connect your database via Settings (gear icon) first..."}
+              disabled={!isConnected || isTrialExpired}
               rows={1}
               className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}
             />
 
             <button
-              type={input.trim() ? "submit" : "button"}
-              onClick={input.trim() ? undefined : openVoiceOverlay}
-              disabled={(!selectedDataSourceId || isTrialExpired) && !input.trim()}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${input.trim() ? (isDark ? 'bg-white text-black hover:bg-[#e2e2e2]' : 'bg-black text-white hover:bg-[#333333]') : (isDark ? 'text-[#8e8e8e] hover:text-white bg-white/5' : 'text-[#676767] hover:text-black bg-black/5')}`}
-              title={input.trim() ? "Send message" : "Open Voice Mode"}
+              type="submit"
+              disabled={(!isConnected || isTrialExpired) && !input.trim()}
+              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+              title="Send message"
             >
-              {input.trim() ? <Send className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+              <Send className="w-4 h-4" />
             </button>
           </form>
 
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
-            Sona can make mistakes. Verify important data.
+            Prompt.ai can make mistakes. Verify important data.
           </p>
         </div>
       </main>
