@@ -177,32 +177,53 @@ export default function ChatPage() {
     setLoading(true);
 
     let currentSessionId = activeSessionId;
+    
     try {
+      // 1. Se não existe uma sessão ativa, cria uma nova no Supabase e aguarda o ID
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-        supabase
+        
+        const { data: newSession, error: sessionError } = await supabase
           .from('chat_sessions')
           .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
           .select()
-          .single()
-          .then(({ data: newSession }) => {
-            if (newSession) {
-              currentSessionId = newSession.id;
-              setActiveSessionId(newSession.id);
-              setSessions((prev) => [newSession, ...prev]);
-            }
-          });
+          .single();
+
+        if (!sessionError && newSession) {
+          currentSessionId = newSession.id;
+          setActiveSessionId(newSession.id);
+          setSessions((prev) => [newSession, ...prev]);
+        }
       }
 
+      // 2. Salva a mensagem do usuário na tabela chat_messages (se houver sessão)
+      if (currentSessionId) {
+        await supabase.from('chat_messages').insert([
+          { session_id: currentSessionId, role: 'user', content: userMessage }
+        ]);
+      }
+
+      // 3. Chama a API de backend para processar os dados
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
       });
+      
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Error processing data.';
 
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
+
+      // 4. Salva a resposta do assistente na tabela chat_messages
+      if (currentSessionId) {
+        await supabase.from('chat_messages').insert([
+          { session_id: currentSessionId, role: 'assistant', content: assistantReply }
+        ]);
+      }
+
+    } catch (err) {
+      console.error('Erro ao processar mensagem:', err);
     } finally {
       setLoading(false);
     }
