@@ -622,7 +622,7 @@ export default function ChatPage() {
                   }
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Sona about your data..." : "Connect your database via Settings (gear icon) first..."}
+              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Prompt about your data..." : "Connect your database via Settings (gear icon) first..."}
               disabled={!isConnected || isTrialExpired}
               rows={1}
               className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}

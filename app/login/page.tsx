@@ -43,7 +43,7 @@ export default function LoginPage() {
       <main className="w-full max-w-[360px] mx-auto space-y-6 text-center my-auto">
         
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-          Log in and access your workspace
+          Access your workspace
         </h1>
 
         {errorMessage && (
