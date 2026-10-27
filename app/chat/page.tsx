@@ -4,14 +4,23 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon
+  Settings, Sun, Moon, FileSpreadsheet, FileText, Download
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+
+interface FileData {
+  type: 'excel' | 'pdf';
+  filename: string;
+  rows: any[];
+}
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  fileData?: FileData;
 }
 
 interface ChatSession {
@@ -35,7 +44,6 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Estado para controlar a abertura do modal de conexão via Configurações
   const [isDbConfigModalOpen, setIsDbConfigModalOpen] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -179,7 +187,6 @@ export default function ChatPage() {
     let currentSessionId = activeSessionId;
     
     try {
-      // 1. Se não existe uma sessão ativa, cria uma nova no Supabase e aguarda o ID
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
         
@@ -196,15 +203,12 @@ export default function ChatPage() {
         }
       }
 
-      // 2. Salva a mensagem do usuário na tabela chat_messages (incluindo user_id)
       if (currentSessionId && user) {
-        const { error: msgUserError } = await supabase.from('chat_messages').insert([
+        await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
         ]);
-        if (msgUserError) console.error('Erro ao salvar msg do user:', msgUserError);
       }
 
-      // 3. Chama a API de backend para processar os dados do banco
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,15 +217,20 @@ export default function ChatPage() {
       
       const data = await response.json();
       const assistantReply = data.reply || data.message || 'Error processing data.';
+      const fileData = data.fileData || null; // Suporte opcional caso o backend retorne dados estruturados para arquivo
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
+      const newAssistantMessage: Message = {
+        role: 'assistant',
+        content: assistantReply,
+        fileData: fileData || undefined
+      };
 
-      // 4. Salva a resposta do assistente na tabela chat_messages (incluindo user_id)
+      setMessages((prev) => [...prev, newAssistantMessage]);
+
       if (currentSessionId && user) {
-        const { error: msgAsstError } = await supabase.from('chat_messages').insert([
+        await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
         ]);
-        if (msgAsstError) console.error('Erro ao salvar msg do assistente:', msgAsstError);
       }
 
     } catch (err) {
@@ -242,6 +251,27 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Funções de download estilo Gemini
+  const downloadExcel = (rows: any[], filename = 'prompt-ai-report.xlsx') => {
+    const worksheet = XLSX.utils.json_to_sheet(rows && rows.length > 0 ? rows : [{ Info: "No tabular data returned" }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, filename);
+  };
+
+  const downloadPDF = (content: string, filename = 'prompt-ai-report.pdf') => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(14);
+    doc.text("Prompt.ai - Executive Report", 14, 20);
+    
+    doc.setFontSize(10);
+    const splitText = doc.splitTextToSize(content, 180);
+    doc.text(splitText, 14, 35);
+    
+    doc.save(filename);
+  };
+
   if (loadingSession) {
     return (
       <div className={`flex h-screen w-screen items-center justify-center ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
@@ -256,7 +286,7 @@ export default function ChatPage() {
   return (
     <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
-      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS (VIA ENGRENAGEM) */}
+      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS */}
       {isDbConfigModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
@@ -375,7 +405,7 @@ export default function ChatPage() {
         <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
       )}
 
-      {/* Sidebar limpa (sem formulário de banco de dados) */}
+      {/* Sidebar */}
       <aside className={`
         fixed md:relative inset-y-0 left-0 z-40
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
@@ -491,7 +521,7 @@ export default function ChatPage() {
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </a>
 
-            {/* Settings & Theme Selector Menu */}
+            {/* Settings & Theme */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -504,7 +534,6 @@ export default function ChatPage() {
               {isSettingsOpen && (
                 <div className={`absolute right-0 mt-2 w-52 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
                   
-                  {/* Opção para abrir o modal de Conexão com Banco */}
                   <button
                     onClick={() => { setIsDbConfigModalOpen(true); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`}
@@ -582,9 +611,44 @@ export default function ChatPage() {
                     ) : (
                       <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+                        {/* CARD DE DOWNLOAD ESTILO GEMINI (SE A IA GERAR DADOS DE ARQUIVO) */}
+                        {msg.fileData && (
+                          <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${msg.fileData.type === 'excel' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                {msg.fileData.type === 'excel' ? <FileSpreadsheet className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>
+                                  {msg.fileData.filename}
+                                </p>
+                                <p className={`text-[10px] ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                                  Ready to download
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (msg.fileData?.type === 'excel') {
+                                  downloadExcel(msg.fileData.rows, msg.fileData.filename);
+                                } else {
+                                  downloadPDF(msg.content, msg.fileData?.filename || 'report.pdf');
+                                }
+                              }}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        )}
+
                         <div className={`flex items-center gap-1 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 rounded transition hover:opacity-80" title="Copy">
-                            {copiedIndex === index ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 rounded transition hover:opacity-80 flex items-center gap-1 text-xs" title="Copy">
+                            {copiedIndex === index ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span>Copy</span>
                           </button>
                         </div>
                       </div>
@@ -603,7 +667,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar (Sem botão de microfone) */}
+        {/* Input Bar */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
@@ -622,7 +686,7 @@ export default function ChatPage() {
                   }
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Prompt about your data..." : "Connect your database via Settings (gear icon) first..."}
+              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Prompt about your data (e.g. 'Generate report in Excel')..." : "Connect your database via Settings (gear icon) first..."}
               disabled={!isConnected || isTrialExpired}
               rows={1}
               className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}
