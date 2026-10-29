@@ -177,68 +177,73 @@ export default function ChatPage() {
     }
   };
 
-  const processAndSendMessage = async (userMessage: string) => {
-    if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
+    const processAndSendMessage = async (userMessage: string) => {
+      if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setLoading(true);
+      setInput('');
+      setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+      setLoading(true);
 
-    let currentSessionId = activeSessionId;
-    
-    try {
-      if (!currentSessionId && user) {
-        const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-        
-        const { data: newSession, error: sessionError } = await supabase
-          .from('chat_sessions')
-          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
-          .select()
-          .single();
-
-        if (!sessionError && newSession) {
-          currentSessionId = newSession.id;
-          setActiveSessionId(newSession.id);
-          setSessions((prev) => [newSession, ...prev]);
-        }
-      }
-
-      if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
-        ]);
-      }
-
-      const response = await fetch('/api/connect-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
-      });
+      let currentSessionId = activeSessionId;
       
-      const data = await response.json();
-      const assistantReply = data.reply || data.message || 'Error processing data.';
-      const fileData = data.fileData || null; // Suporte opcional caso o backend retorne dados estruturados para arquivo
+      try {
+        if (!currentSessionId && user) {
+          const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
+          
+          const { data: newSession, error: sessionError } = await supabase
+            .from('chat_sessions')
+            .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
+            .select()
+            .single();
 
-      const newAssistantMessage: Message = {
-        role: 'assistant',
-        content: assistantReply,
-        fileData: fileData || undefined
-      };
+          if (!sessionError && newSession) {
+            currentSessionId = newSession.id;
+            setActiveSessionId(newSession.id);
+            setSessions((prev) => [newSession, ...prev]);
+          }
+        }
 
-      setMessages((prev) => [...prev, newAssistantMessage]);
+        if (currentSessionId && user) {
+          await supabase.from('chat_messages').insert([
+            { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
+          ]);
+        }
 
-      if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
-        ]);
-      }
+        const response = await fetch('/api/connect-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
+        });
+        
+        const data = await response.json();
+        const assistantReply = data.reply || data.message || 'Error processing data.';
+        const fileData = data.fileData || null; // Suporte opcional caso o backend retorne dados estruturados para arquivo
 
-    } catch (err) {
-      console.error('Erro ao processar mensagem:', err);
+        const newAssistantMessage: Message = {
+          role: 'assistant',
+          content: assistantReply,
+          fileData: fileData || undefined
+        };
+
+        setMessages((prev) => [...prev, newAssistantMessage]);
+
+        if (currentSessionId && user) {
+          await supabase.from('chat_messages').insert([
+            { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
+          ]);
+        }
+
+      } catch (err: any) {
+      console.error('Erro detalhado ao processar mensagem:', err);
+      // Exibe o erro real na tela do chat para você ver o motivo exato
+      setMessages((prev) => [
+        ...prev, 
+        { role: 'assistant', content: `❌ Erro no processamento: ${err.message || 'Erro interno desconhecido'}` }
+      ]);
     } finally {
       setLoading(false);
     }
-  };
+    };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
