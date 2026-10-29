@@ -131,6 +131,13 @@ export async function POST(request: Request) {
       reply = "Nenhum banco de dados conectado ou credenciais inválidas.";
     }
 
+    let resultadoAgente: any = { reply: "" };
+    if (conexaoPronta.client) {
+      resultadoAgente = await executarAgente(prompt, conexaoPronta);
+    } else {
+      resultadoAgente = { reply: "Nenhum banco de dados conectado ou credenciais inválidas." };
+    }
+
     // Encerra/fecha conexões abertas para otimizar os recursos do servidorless
     if (tipoUsado === 'postgres' && typeof clientInstance.end === 'function') {
       await clientInstance.end();
@@ -144,7 +151,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      reply: reply 
+      reply: resultadoAgente.reply,
+      fileData: resultadoAgente.fileData || null
     }, { status: 200 });
 
   } catch (error: any) {
