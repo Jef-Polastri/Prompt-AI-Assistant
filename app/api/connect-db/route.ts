@@ -149,9 +149,10 @@ export async function POST(request: Request) {
       await clientInstance.close();
     }
 
+    // RETORNO PADRÃO CORRIGIDO PARA A ROTA:
     return NextResponse.json({ 
       success: true, 
-      reply: resultadoAgente.reply,
+      reply: typeof resultadoAgente === 'string' ? resultadoAgente : resultadoAgente.reply,
       fileData: resultadoAgente.fileData || null
     }, { status: 200 });
 
