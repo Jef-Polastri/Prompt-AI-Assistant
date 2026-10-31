@@ -45,7 +45,6 @@ export default function ChatPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbConfigModalOpen, setIsDbConfigModalOpen] = useState(false);
 
-  // Terceiro: Estado do Nome do Usuário
   const [userName, setUserName] = useState<string>('');
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [tempNameInput, setTempNameInput] = useState('');
@@ -94,12 +93,11 @@ export default function ChatPage() {
         }
         loadSessions(session.user.id);
 
-        // Verifica se já existe um nome salvo no localStorage
         const savedName = localStorage.getItem(`prompt_user_name_${session.user.id}`);
         if (savedName) {
           setUserName(savedName);
         } else {
-          setIsNameModalOpen(true); // Abre a tela para perguntar o nome
+          setIsNameModalOpen(true);
         }
       } catch (err) {
         window.location.href = '/login';
@@ -279,7 +277,6 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // Segundo: Função de áudio nativo masculino (sem robô)
   const speakText = (text: string) => {
     if (!('speechSynthesis' in window)) {
       alert('Seu navegador não suporta síntese de voz.');
@@ -289,7 +286,7 @@ export default function ChatPage() {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'pt-BR';
     utterance.rate = 1.0;
-    utterance.pitch = 0.95; // Tom levemente mais grave para soar masculino
+    utterance.pitch = 0.95;
 
     const voices = window.speechSynthesis.getVoices();
     const maleVoice = voices.find(v => v.lang.includes('pt') && (v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('lucas') || v.name.toLowerCase().includes('google português do brasil') || v.name.toLowerCase().includes('male')));
@@ -300,7 +297,6 @@ export default function ChatPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Funções de download
   const downloadExcel = (rows: any[], filename = 'prompt-ai-report.xlsx') => {
     const worksheet = XLSX.utils.json_to_sheet(rows && rows.length > 0 ? rows : [{ Info: "No tabular data returned" }]);
     const workbook = XLSX.utils.book_new();
@@ -321,8 +317,8 @@ export default function ChatPage() {
 
   if (loadingSession) {
     return (
-      <div className={`flex h-screen w-screen items-center justify-center font-mono ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
-        <span className="animate-pulse">_</span>
+      <div className={`flex h-screen w-screen items-center justify-center font-sans ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
       </div>
     );
   }
@@ -331,12 +327,12 @@ export default function ChatPage() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex h-screen font-mono overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
-      {/* TERCEIRO: MODAL DE NOME DO USUÁRIO NO PRIMEIRO LOGIN */}
+      {/* MODAL DE NOME DO USUÁRIO */}
       {isNameModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-mono ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+          <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
             <div className="flex items-center gap-2 mb-3">
               <User className="w-5 h-5 text-neutral-400" />
               <h3 className="text-sm font-semibold">Como gostaria de ser chamado?</h3>
@@ -368,7 +364,7 @@ export default function ChatPage() {
       {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS */}
       {isDbConfigModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-mono ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-neutral-400" />
@@ -468,7 +464,7 @@ export default function ChatPage() {
                   disabled={connecting || isTrialExpired}
                   className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
                 >
-                  {connecting && <span className="animate-pulse">_</span>}
+                  {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {isConnected ? 'Reconnect Database' : 'Connect DBMS'}
                 </button>
               </div>
@@ -484,7 +480,7 @@ export default function ChatPage() {
 
       {/* Sidebar */}
       <aside className={`
-        fixed md:relative inset-y-0 left-0 z-40 font-mono
+        fixed md:relative inset-y-0 left-0 z-40 font-sans
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
         ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
         ${isDark ? 'bg-[#171717] border-[#212121]' : 'bg-[#f9f9f9] border-[#e5e5e5]'}
@@ -533,8 +529,8 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* User Footer - Terceiro: Exibe o nome customizado do usuário */}
-        <div className={`p-3 border-t relative font-mono ${isDark ? 'border-white/5' : 'border-black/5'}`}>
+        {/* User Footer */}
+        <div className={`p-3 border-t relative font-sans ${isDark ? 'border-white/5' : 'border-black/5'}`}>
           {isUserMenuOpen && (
             <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
               <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'}`}>
@@ -559,7 +555,7 @@ export default function ChatPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className={`relative flex-1 flex flex-col h-full overflow-hidden font-mono ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+      <main className={`relative flex-1 flex flex-col h-full overflow-hidden font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
         {/* Header */}
         <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
@@ -596,7 +592,7 @@ export default function ChatPage() {
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </a>
 
-            {/* Quarto: Ícones da engrenagem em preto e branco */}
+            {/* Ícones da engrenagem em preto e branco */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -644,7 +640,7 @@ export default function ChatPage() {
         </header>
 
         {/* Scrollable Center Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-mono w-full flex flex-col items-center">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
           <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
             {messages.length <= 1 ? (
               <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
@@ -674,15 +670,16 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              <div className="w-full space-y-6 font-mono">
+              <div className="w-full space-y-6">
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm sm:text-base leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
+                      /* APLICAÇÃO DA FONTE MONO E TAMANHO EQUIVALENTE AO GEMINI APENAS NO CHAT */
+                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm sm:text-base font-mono leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
                         {msg.content}
                       </div>
                     ) : (
-                      <div className={`w-full text-sm sm:text-base leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
+                      <div className={`w-full text-sm sm:text-base font-mono leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
 
                         {/* CARD DE DOWNLOAD EXCEL / PDF */}
@@ -718,7 +715,7 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Quinto & Segundo: Botões abaixo da resposta (Copy sem texto + Áudio Masculino) */}
+                        {/* Botões de Ação (Copy sem texto + Áudio) */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
@@ -741,7 +738,7 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Sexto: Terminal cursor piscando e sem texto de loading */}
+                {/* Loading com _ piscando */}
                 {loading && (
                   <div className={`flex items-center p-2 font-mono text-sm ${isDark ? 'text-white' : 'text-black'}`}>
                     <span className="animate-pulse">_</span>
@@ -753,7 +750,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input Bar */}
-        <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-mono ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+        <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
               value={input}
@@ -776,7 +773,6 @@ export default function ChatPage() {
               <Send className="w-4 h-4" />
             </button>
           </form>
-
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
             Prompt.ai can make mistakes. Verify important data.
           </p>
