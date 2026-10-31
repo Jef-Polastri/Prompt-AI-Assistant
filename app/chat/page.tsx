@@ -64,7 +64,6 @@ export default function ChatPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
 
-  // Estados de controle de áudio
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -84,7 +83,6 @@ export default function ChatPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize do textarea (Estilo Gemini)
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -295,7 +293,6 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // Função de áudio com Play/Stop toggle funcional
   const toggleSpeech = (text: string, index: number) => {
     if (!('speechSynthesis' in window)) {
       alert('Seu navegador não suporta síntese de voz.');
@@ -744,14 +741,14 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Botões de Ação (Copy sem texto + Áudio com suporte a Play/Stop) */}
+                        {/* Botões de Ação (Copy em P&B e Áudio/Stop em P&B) */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
                             title="Copy"
                           >
-                            {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                            {copiedIndex === index ? <Check className="w-4 h-4 text-neutral-400" /> : <Copy className="w-4 h-4" />}
                           </button>
 
                           <button 
@@ -759,7 +756,7 @@ export default function ChatPage() {
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
                             title={speakingIndex === index ? "Parar áudio" : "Ouvir áudio"}
                           >
-                            {speakingIndex === index ? <Square className="w-4 h-4 text-red-400 fill-current" /> : <Volume2 className="w-4 h-4" />}
+                            {speakingIndex === index ? <Square className="w-4 h-4 text-neutral-400 fill-current" /> : <Volume2 className="w-4 h-4" />}
                           </button>
                         </div>
                       </div>
@@ -767,7 +764,7 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Loading com _ piscando mais rápido e maior */}
+                {/* Loading com _ piscando */}
                 {loading && (
                   <div className={`flex items-center p-2 font-mono text-xl ${isDark ? 'text-white' : 'text-black'}`}>
                     <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite]">_</span>
