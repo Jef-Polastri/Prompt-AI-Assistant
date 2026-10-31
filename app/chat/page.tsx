@@ -4,14 +4,23 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon
+  Settings, Sun, Moon, FileSpreadsheet, FileText, Download, Volume2, Square, User
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+
+interface FileData {
+  type: 'excel' | 'pdf';
+  filename: string;
+  rows: any[];
+}
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  fileData?: FileData;
 }
 
 interface ChatSession {
@@ -34,9 +43,11 @@ export default function ChatPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Estado para controlar a abertura do modal de conexão via Configurações
   const [isDbConfigModalOpen, setIsDbConfigModalOpen] = useState(false);
+
+  const [userName, setUserName] = useState<string>('');
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [tempNameInput, setTempNameInput] = useState('');
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -53,6 +64,8 @@ export default function ChatPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
 
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -68,6 +81,15 @@ export default function ChatPage() {
   const [connecting, setConnecting] = useState(false);
   const [activeConnection, setActiveConnection] = useState<any>(null);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }, [input]);
+
   useEffect(() => {
     async function checkUser() {
       try {
@@ -81,6 +103,13 @@ export default function ChatPage() {
           setIsTrialExpired(checkTrialExpired(session.user.created_at));
         }
         loadSessions(session.user.id);
+
+        const savedName = localStorage.getItem(`prompt_user_name_${session.user.id}`);
+        if (savedName) {
+          setUserName(savedName);
+        } else {
+          setIsNameModalOpen(true);
+        }
       } catch (err) {
         window.location.href = '/login';
       } finally {
@@ -89,6 +118,14 @@ export default function ChatPage() {
     }
     checkUser();
   }, []);
+
+  const handleSaveName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempNameInput.trim() || !user) return;
+    localStorage.setItem(`prompt_user_name_${user.id}`, tempNameInput.trim());
+    setUserName(tempNameInput.trim());
+    setIsNameModalOpen(false);
+  };
 
   const loadSessions = async (userId: string) => {
     try {
@@ -137,6 +174,7 @@ export default function ChatPage() {
   };
 
   const handleLogout = async () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
@@ -173,6 +211,10 @@ export default function ChatPage() {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
     setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
@@ -212,7 +254,20 @@ export default function ChatPage() {
       });
       
       const data = await response.json();
-      const assistantReply = data.reply || data.message || 'Error processing data.';
+      
+      const assistantReply = typeof data.reply === 'string' 
+        ? data.reply 
+        : (data.reply?.reply || data.message || 'Erro ao processar dados.');
+        
+      const fileData = data.fileData || data.reply?.fileData || null;
+
+      const newAssistantMessage: Message = {
+        role: 'assistant',
+        content: assistantReply,
+        fileData: fileData || undefined
+      };
+
+      setMessages((prev) => [...prev, newAssistantMessage]);
 
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
@@ -224,8 +279,12 @@ export default function ChatPage() {
         if (msgAsstError) console.error('Erro ao salvar msg do assistente:', msgAsstError);
       }
 
-    } catch (err) {
-      console.error('Erro ao processar mensagem:', err);
+    } catch (err: any) {
+      console.error('Erro detalhado ao processar mensagem:', err);
+      setMessages((prev) => [
+        ...prev, 
+        { role: 'assistant', content: `❌ Erro no processamento: ${err.message || 'Erro interno desconhecido'}` }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -242,28 +301,108 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  const toggleSpeech = (text: string, index: number) => {
+    if (!('speechSynthesis' in window)) {
+      alert('Seu navegador não suporta síntese de voz.');
+      return;
+    }
+
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1.0;
+    utterance.pitch = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const maleVoice = voices.find(v => v.lang.includes('pt') && (v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('lucas') || v.name.toLowerCase().includes('google português do brasil') || v.name.toLowerCase().includes('male')));
+    if (maleVoice) {
+      utterance.voice = maleVoice;
+    }
+
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const downloadExcel = (rows: any[], filename = 'prompt-ai-report.xlsx') => {
+    const worksheet = XLSX.utils.json_to_sheet(rows && rows.length > 0 ? rows : [{ Info: "No tabular data returned" }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, filename);
+  };
+
+  const downloadPDF = (content: string, filename = 'prompt-ai-report.pdf') => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(14);
+    doc.text("Prompt.ai - Executive Report", 14, 20);
+    doc.setFontSize(10);
+    const splitText = doc.splitTextToSize(content, 180);
+    doc.text(splitText, 14, 35);
+    doc.save(filename);
+  };
+
   if (loadingSession) {
     return (
-      <div className={`flex h-screen w-screen items-center justify-center ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
+      <div className={`flex h-screen w-screen items-center justify-center font-sans ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
         <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
       </div>
     );
   }
 
-  const userEmail = user?.email || 'user@sonar.ai';
+  const displayName = userName || user?.email?.split('@')[0] || 'User';
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
-      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS (VIA ENGRENAGEM) */}
+      {/* MODAL DE NOME DO USUÁRIO */}
+      {isNameModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <User className="w-5 h-5 text-neutral-400" />
+              <h3 className="text-sm font-semibold">Como gostaria de ser chamado?</h3>
+            </div>
+            <p className={`text-xs mb-4 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+              Insira seu nome para personalizar sua experiência no Prompt.ai.
+            </p>
+            <form onSubmit={handleSaveName} className="space-y-3">
+              <input
+                type="text"
+                value={tempNameInput}
+                onChange={(e) => setTempNameInput(e.target.value)}
+                placeholder="Seu nome..."
+                className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                required
+                autoFocus
+              />
+              <button
+                type="submit"
+                className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+              >
+                Salvar e Continuar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS */}
       {isDbConfigModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
-            
+          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-emerald-500" />
+                <Database className="w-5 h-5 text-neutral-400" />
                 <h3 className="text-base font-semibold">Database Connection</h3>
               </div>
               <button
@@ -365,7 +504,6 @@ export default function ChatPage() {
                 </button>
               </div>
             </form>
-
           </div>
         </div>
       )}
@@ -375,16 +513,15 @@ export default function ChatPage() {
         <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
       )}
 
-      {/* Sidebar limpa (sem formulário de banco de dados) */}
+      {/* Sidebar */}
       <aside className={`
-        fixed md:relative inset-y-0 left-0 z-40
+        fixed md:relative inset-y-0 left-0 z-40 font-sans
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
         ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
         ${isDark ? 'bg-[#171717] border-[#212121]' : 'bg-[#f9f9f9] border-[#e5e5e5]'}
         transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
       `}>
         <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
-
           <div className="flex items-center justify-between px-1 py-1 shrink-0">
             <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
               Prompt.ai
@@ -425,11 +562,10 @@ export default function ChatPage() {
               </div>
             ))}
           </div>
-
         </div>
 
         {/* User Footer */}
-        <div className={`p-3 border-t relative ${isDark ? 'border-white/5' : 'border-black/5'}`}>
+        <div className={`p-3 border-t relative font-sans ${isDark ? 'border-white/5' : 'border-black/5'}`}>
           {isUserMenuOpen && (
             <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
               <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'}`}>
@@ -444,9 +580,9 @@ export default function ChatPage() {
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'}`}>
-                {userEmail.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
-              <span className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>{userEmail}</span>
+              <span className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>{displayName}</span>
             </div>
             <ChevronDown className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
           </button>
@@ -454,7 +590,7 @@ export default function ChatPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className={`relative flex-1 flex flex-col h-full overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+      <main className={`relative flex-1 flex flex-col h-full overflow-hidden font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
         {/* Header */}
         <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
@@ -491,11 +627,11 @@ export default function ChatPage() {
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </a>
 
-            {/* Settings & Theme Selector Menu */}
+            {/* Ícones da engrenagem em preto e branco */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-white hover:bg-[#212121]' : 'text-black hover:bg-[#f0f0f0]'}`}
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />
@@ -503,13 +639,11 @@ export default function ChatPage() {
 
               {isSettingsOpen && (
                 <div className={`absolute right-0 mt-2 w-52 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
-                  
-                  {/* Opção para abrir o modal de Conexão com Banco */}
                   <button
                     onClick={() => { setIsDbConfigModalOpen(true); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`}
                   >
-                    <Database className="w-4 h-4 text-emerald-500" />
+                    <Database className="w-4 h-4 text-neutral-400" />
                     <span>Database Connection</span>
                   </button>
 
@@ -523,21 +657,20 @@ export default function ChatPage() {
                     onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-gray-100 text-black'}`}
                   >
-                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-purple-400" /><span>Dark Mode</span></div>
-                    {isDark && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-neutral-400" /><span>Dark Mode</span></div>
+                    {isDark && <Check className="w-3.5 h-3.5 text-neutral-400" />}
                   </button>
 
                   <button
                     onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-gray-100 font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
                   >
-                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-amber-500" /><span>Light Mode</span></div>
-                    {!isDark && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-neutral-600" /><span>Light Mode</span></div>
+                    {!isDark && <Check className="w-3.5 h-3.5 text-neutral-800" />}
                   </button>
                 </div>
               )}
             </div>
-
           </div>
         </header>
 
@@ -576,15 +709,75 @@ export default function ChatPage() {
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
-                        {msg.content}
+                      /* Mensagem do usuário com suporte a seleção de texto (select-text), fonte mono levemente menor e botão de copiar abaixo */
+                      <div className="flex flex-col items-end group/usermsg">
+                        <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-xs sm:text-sm font-mono select-text leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
+                          {msg.content}
+                        </div>
+                        <div className={`flex items-center gap-1 pt-1 opacity-0 group-hover/usermsg:opacity-100 transition-opacity ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button 
+                            onClick={() => handleCopy(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? <Check className="w-3.5 h-3.5 text-neutral-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
+                      /* Mensagem do assistente com seleção de texto (select-text) e fonte mono levemente menor */
+                      <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        <div className={`flex items-center gap-1 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                          <button onClick={() => handleCopy(msg.content, index)} className="p-1 rounded transition hover:opacity-80" title="Copy">
-                            {copiedIndex === index ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+
+                        {/* CARD DE DOWNLOAD EXCEL / PDF */}
+                        {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
+                          <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${msg.fileData.type === 'excel' ? 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20' : 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20'}`}>
+                                {msg.fileData.type === 'excel' ? <FileSpreadsheet className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>
+                                  {msg.fileData.filename}
+                                </p>
+                                <p className={`text-[10px] ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                                  Ready to download ({msg.fileData.rows.length} rows)
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (msg.fileData?.type === 'excel') {
+                                  downloadExcel(msg.fileData.rows, msg.fileData.filename);
+                                } else {
+                                  downloadPDF(msg.content, msg.fileData?.filename || 'report.pdf');
+                                }
+                              }}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Botões de Ação do Assistente (Copy e Áudio em P&B) */}
+                        <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button 
+                            onClick={() => handleCopy(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? <Check className="w-4 h-4 text-neutral-400" /> : <Copy className="w-4 h-4" />}
+                          </button>
+
+                          <button 
+                            onClick={() => toggleSpeech(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title={speakingIndex === index ? "Parar áudio" : "Ouvir áudio"}
+                          >
+                            {speakingIndex === index ? <Square className="w-4 h-4 text-neutral-400 fill-current" /> : <Volume2 className="w-4 h-4" />}
                           </button>
                         </div>
                       </div>
@@ -592,10 +785,10 @@ export default function ChatPage() {
                   </div>
                 ))}
 
+                {/* Loading com _ piscando */}
                 {loading && (
-                  <div className={`flex gap-2 items-center p-2 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Prompt.ai is analyzing the data...</span>
+                  <div className={`flex items-center p-2 font-mono text-xl ${isDark ? 'text-white' : 'text-black'}`}>
+                    <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite]">_</span>
                   </div>
                 )}
               </div>
@@ -603,41 +796,31 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar (Sem botão de microfone) */}
-        <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
+        {/* Input Bar */}
+        <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
-              }}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
-                    handleSend(e as any);
-                    (e.target as HTMLTextAreaElement).style.height = 'auto';
-                  }
+                  handleSend(e);
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Prompt about your data..." : "Connect your database via Settings (gear icon) first..."}
-              disabled={!isConnected || isTrialExpired}
+              placeholder="Ask anything about your database..."
               rows={1}
-              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}
+              className={`w-full bg-transparent text-xs sm:text-sm font-mono focus:outline-none resize-none max-h-40 py-1 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#676767]'}`}
             />
-
             <button
               type="submit"
-              disabled={(!isConnected || isTrialExpired) && !input.trim()}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
-              title="Send message"
+              disabled={!input.trim() || loading || !isConnected || isTrialExpired}
+              className={`p-2 rounded-full transition cursor-pointer mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
             >
               <Send className="w-4 h-4" />
             </button>
           </form>
-
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
             Prompt.ai can make mistakes. Verify important data.
           </p>

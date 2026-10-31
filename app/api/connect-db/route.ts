@@ -123,12 +123,12 @@ export async function POST(request: Request) {
       type: tipoUsado,
       client: clientInstance
     };
-
-    let reply = "";
+    
+    let resultadoAgente: any = { reply: "" };
     if (conexaoPronta.client) {
-      reply = await executarAgente(prompt, conexaoPronta);
+      resultadoAgente = await executarAgente(prompt, conexaoPronta);
     } else {
-      reply = "Nenhum banco de dados conectado ou credenciais inválidas.";
+      resultadoAgente = { reply: "Nenhum banco de dados conectado ou credenciais inválidas." };
     }
 
     // Encerra/fecha conexões abertas para otimizar os recursos do servidorless
@@ -142,9 +142,11 @@ export async function POST(request: Request) {
       await clientInstance.close();
     }
 
+    // RETORNO PADRÃO CORRIGIDO PARA A ROTA:
     return NextResponse.json({ 
       success: true, 
-      reply: reply 
+      reply: typeof resultadoAgente === 'string' ? resultadoAgente : resultadoAgente.reply,
+      fileData: resultadoAgente.fileData || null
     }, { status: 200 });
 
   } catch (error: any) {
