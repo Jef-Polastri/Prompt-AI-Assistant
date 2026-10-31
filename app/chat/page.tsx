@@ -177,65 +177,69 @@ export default function ChatPage() {
     }
   };
 
-    const processAndSendMessage = async (userMessage: string) => {
-      if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
+  const processAndSendMessage = async (userMessage: string) => {
+    if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
-      setInput('');
-      setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-      setLoading(true);
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
 
-      let currentSessionId = activeSessionId;
-      
-      try {
-        if (!currentSessionId && user) {
-          const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
-          
-          const { data: newSession, error: sessionError } = await supabase
-            .from('chat_sessions')
-            .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
-            .select()
-            .single();
-
-          if (!sessionError && newSession) {
-            currentSessionId = newSession.id;
-            setActiveSessionId(newSession.id);
-            setSessions((prev) => [newSession, ...prev]);
-          }
-        }
-
-        if (currentSessionId && user) {
-          await supabase.from('chat_messages').insert([
-            { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
-          ]);
-        }
-
-        const response = await fetch('/api/connect-db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
-        });
+    let currentSessionId = activeSessionId;
+    
+    try {
+      if (!currentSessionId && user) {
+        const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
         
-        const data = await response.json();
-        const assistantReply = data.reply || data.message || 'Error processing data.';
-        const fileData = data.fileData || null; // Suporte opcional caso o backend retorne dados estruturados para arquivo
+        const { data: newSession, error: sessionError } = await supabase
+          .from('chat_sessions')
+          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
+          .select()
+          .single();
 
-        const newAssistantMessage: Message = {
-          role: 'assistant',
-          content: assistantReply,
-          fileData: fileData || undefined
-        };
-
-        setMessages((prev) => [...prev, newAssistantMessage]);
-
-        if (currentSessionId && user) {
-          await supabase.from('chat_messages').insert([
-            { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
-          ]);
+        if (!sessionError && newSession) {
+          currentSessionId = newSession.id;
+          setActiveSessionId(newSession.id);
+          setSessions((prev) => [newSession, ...prev]);
         }
+      }
 
-      } catch (err: any) {
+      if (currentSessionId && user) {
+        await supabase.from('chat_messages').insert([
+          { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
+        ]);
+      }
+
+      const response = await fetch('/api/connect-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
+      });
+      
+      const data = await response.json();
+      
+      // Extração robusta para evitar qualquer erro de formato vindo do backend
+      const assistantReply = typeof data.reply === 'string' 
+        ? data.reply 
+        : (data.reply?.reply || data.message || 'Erro ao processar dados.');
+        
+      const fileData = data.fileData || data.reply?.fileData || null;
+
+      const newAssistantMessage: Message = {
+        role: 'assistant',
+        content: assistantReply,
+        fileData: fileData || undefined
+      };
+
+      setMessages((prev) => [...prev, newAssistantMessage]);
+
+      if (currentSessionId && user) {
+        await supabase.from('chat_messages').insert([
+          { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
+        ]);
+      }
+
+    } catch (err: any) {
       console.error('Erro detalhado ao processar mensagem:', err);
-      // Exibe o erro real na tela do chat para você ver o motivo exato
       setMessages((prev) => [
         ...prev, 
         { role: 'assistant', content: `❌ Erro no processamento: ${err.message || 'Erro interno desconhecido'}` }
@@ -243,7 +247,7 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
-    };
+  };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -617,8 +621,8 @@ export default function ChatPage() {
                       <div className={`w-full text-sm leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
 
-                        {/* CARD DE DOWNLOAD ESTILO GEMINI (SE A IA GERAR DADOS DE ARQUIVO) */}
-                        {msg.fileData && (
+                        {/* CARD DE DOWNLOAD ESTILO GEMINI */}
+                        {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
                           <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${msg.fileData.type === 'excel' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
@@ -629,7 +633,7 @@ export default function ChatPage() {
                                   {msg.fileData.filename}
                                 </p>
                                 <p className={`text-[10px] ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
-                                  Ready to download
+                                  Ready to download ({msg.fileData.rows.length} rows)
                                 </p>
                               </div>
                             </div>
@@ -677,31 +681,21 @@ export default function ChatPage() {
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
-              }}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (input.trim() && !loading && isConnected && !isTrialExpired) {
-                    handleSend(e as any);
-                    (e.target as HTMLTextAreaElement).style.height = 'auto';
-                  }
+                  handleSend(e);
                 }
               }}
-              placeholder={isTrialExpired ? "Trial expired." : isConnected ? "Ask Prompt about your data (e.g. 'Generate report in Excel')..." : "Connect your database via Settings (gear icon) first..."}
-              disabled={!isConnected || isTrialExpired}
+              placeholder="Ask anything about your database..."
               rows={1}
-              className={`w-full bg-transparent text-sm focus:outline-none resize-none max-h-36 pt-0.5 disabled:opacity-50 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#8e8e8e]'}`}
+              className={`w-full bg-transparent text-xs sm:text-sm focus:outline-none resize-none max-h-32 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#676767]'}`}
             />
-
             <button
               type="submit"
-              disabled={(!isConnected || isTrialExpired) && !input.trim()}
-              className={`p-2 rounded-full transition cursor-pointer shrink-0 disabled:opacity-20 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
-              title="Send message"
+              disabled={!input.trim() || loading || !isConnected || isTrialExpired}
+              className={`p-2 rounded-full transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
             >
               <Send className="w-4 h-4" />
             </button>
