@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
   Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
-  Settings, Sun, Moon, FileSpreadsheet, FileText, Download, Volume2, User
+  Settings, Sun, Moon, FileSpreadsheet, FileText, Download, Volume2, Square, User
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
 import ReactMarkdown from 'react-markdown';
@@ -64,6 +64,9 @@ export default function ChatPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
 
+  // Estados de controle de áudio
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
@@ -78,6 +81,16 @@ export default function ChatPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [activeConnection, setActiveConnection] = useState<any>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize do textarea (Estilo Gemini)
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }, [input]);
 
   useEffect(() => {
     async function checkUser() {
@@ -163,6 +176,7 @@ export default function ChatPage() {
   };
 
   const handleLogout = async () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
@@ -199,6 +213,10 @@ export default function ChatPage() {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
     setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
@@ -277,11 +295,19 @@ export default function ChatPage() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const speakText = (text: string) => {
+  // Função de áudio com Play/Stop toggle funcional
+  const toggleSpeech = (text: string, index: number) => {
     if (!('speechSynthesis' in window)) {
       alert('Seu navegador não suporta síntese de voz.');
       return;
     }
+
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'pt-BR';
@@ -294,6 +320,10 @@ export default function ChatPage() {
       utterance.voice = maleVoice;
     }
 
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+
+    setSpeakingIndex(index);
     window.speechSynthesis.speak(utterance);
   };
 
@@ -674,7 +704,6 @@ export default function ChatPage() {
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      /* APLICAÇÃO DA FONTE MONO E TAMANHO EQUIVALENTE AO GEMINI APENAS NO CHAT */
                       <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm sm:text-base font-mono leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
                         {msg.content}
                       </div>
@@ -715,7 +744,7 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Botões de Ação (Copy sem texto + Áudio) */}
+                        {/* Botões de Ação (Copy sem texto + Áudio com suporte a Play/Stop) */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
@@ -726,11 +755,11 @@ export default function ChatPage() {
                           </button>
 
                           <button 
-                            onClick={() => speakText(msg.content)} 
+                            onClick={() => toggleSpeech(msg.content, index)} 
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
-                            title="Ouvir áudio"
+                            title={speakingIndex === index ? "Parar áudio" : "Ouvir áudio"}
                           >
-                            <Volume2 className="w-4 h-4" />
+                            {speakingIndex === index ? <Square className="w-4 h-4 text-red-400 fill-current" /> : <Volume2 className="w-4 h-4" />}
                           </button>
                         </div>
                       </div>
@@ -738,10 +767,10 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Loading com _ piscando */}
+                {/* Loading com _ piscando mais rápido e maior */}
                 {loading && (
-                  <div className={`flex items-center p-2 font-mono text-sm ${isDark ? 'text-white' : 'text-black'}`}>
-                    <span className="animate-pulse">_</span>
+                  <div className={`flex items-center p-2 font-mono text-xl ${isDark ? 'text-white' : 'text-black'}`}>
+                    <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite]">_</span>
                   </div>
                 )}
               </div>
@@ -749,10 +778,11 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar */}
+        {/* Input Bar com Textarea auto-expansível para baixo */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
-          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-center gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
+          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -763,12 +793,12 @@ export default function ChatPage() {
               }}
               placeholder="Ask anything about your database..."
               rows={1}
-              className={`w-full bg-transparent text-xs sm:text-sm font-mono focus:outline-none resize-none max-h-32 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#676767]'}`}
+              className={`w-full bg-transparent text-xs sm:text-sm font-mono focus:outline-none resize-none max-h-40 py-1 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#676767]'}`}
             />
             <button
               type="submit"
               disabled={!input.trim() || loading || !isConnected || isTrialExpired}
-              className={`p-2 rounded-full transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+              className={`p-2 rounded-full transition cursor-pointer mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
             >
               <Send className="w-4 h-4" />
             </button>
