@@ -354,7 +354,7 @@ export default function ChatPage() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden select-none relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
       {/* MODAL DE NOME DO USUÁRIO */}
       {isNameModalOpen && (
@@ -701,11 +701,24 @@ export default function ChatPage() {
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-sm sm:text-base font-mono leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
-                        {msg.content}
+                      /* Mensagem do usuário com suporte a seleção de texto (select-text), fonte mono levemente menor e botão de copiar abaixo */
+                      <div className="flex flex-col items-end group/usermsg">
+                        <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-xs sm:text-sm font-mono select-text leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
+                          {msg.content}
+                        </div>
+                        <div className={`flex items-center gap-1 pt-1 opacity-0 group-hover/usermsg:opacity-100 transition-opacity ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button 
+                            onClick={() => handleCopy(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? <Check className="w-3.5 h-3.5 text-neutral-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <div className={`w-full text-sm sm:text-base font-mono leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
+                      /* Mensagem do assistente com seleção de texto (select-text) e fonte mono levemente menor */
+                      <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
 
                         {/* CARD DE DOWNLOAD EXCEL / PDF */}
@@ -741,7 +754,7 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Botões de Ação (Copy em P&B e Áudio/Stop em P&B) */}
+                        {/* Botões de Ação do Assistente (Copy e Áudio em P&B) */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
@@ -775,7 +788,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar com Textarea auto-expansível para baixo */}
+        {/* Input Bar */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
