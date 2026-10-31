@@ -123,14 +123,7 @@ export async function POST(request: Request) {
       type: tipoUsado,
       client: clientInstance
     };
-
-    let reply = "";
-    if (conexaoPronta.client) {
-      reply = await executarAgente(prompt, conexaoPronta);
-    } else {
-      reply = "Nenhum banco de dados conectado ou credenciais inválidas.";
-    }
-
+    
     let resultadoAgente: any = { reply: "" };
     if (conexaoPronta.client) {
       resultadoAgente = await executarAgente(prompt, conexaoPronta);
