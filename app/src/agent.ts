@@ -1,10 +1,9 @@
 import { gerarConteudoIA } from '../services/ai/aiService.js';
 //import * as dotenv from 'dotenv';
 
-
 //dotenv.config();
 
-// Função para inspecionar as tabelas e colunas do banco do cliente (Metadados)
+/// Função para inspecionar as tabelas e colunas do banco do cliente (Metadados)
 async function obterEsquemaBanco(activeConnection: any): Promise<string> {
   const { type, client } = activeConnection;
   try {
@@ -48,7 +47,7 @@ export async function executarAgente(perguntaUsuario: string, activeConnection: 
 
     // 2. Montar o prompt de geração SQL
     const promptGeracaoSQL = `
-      Você é um engenheiro de dados sênior especialista em SQL para o banco ${activeConnection.type.toUpperCase()}.
+      Você é um engenheiro de dados sênior, especialista em SQL para o banco ${activeConnection.type.toUpperCase()}.
       Com base estritamente no esquema do banco de dados abaixo, escreva um comando SQL SELECT válido e otimizado para responder à pergunta do usuário.
       
       Esquema do Banco de Dados (Tabelas e Colunas):
@@ -62,9 +61,7 @@ export async function executarAgente(perguntaUsuario: string, activeConnection: 
       - Nunca utilize marcações de markdown nas suas respostas, como negrito (**), itálico (*), títulos (###), blocos de código (\`\`\`) ou linhas divisórias (---). Escreva sempre em texto puro, limpo e corrido, utilizando apenas quebras de linha normais quando necessário.
     `;
 
-    // Chamada centralizada da IA para gerar o SQL
     let sqlGerado = await gerarConteudoIA(promptGeracaoSQL);
-    
     sqlGerado = sqlGerado ? sqlGerado.trim() : '';
     sqlGerado = sqlGerado.replace(/```sql/gi, '').replace(/```/g, '').trim();
 
@@ -72,10 +69,12 @@ export async function executarAgente(perguntaUsuario: string, activeConnection: 
 
     // 3. Validar segurança da query gerada
     if (!validarQuerySQL(sqlGerado)) {
-      return "Desculpe, a IA gerou uma consulta que não passou nos critérios de segurança ou não é um comando de leitura válido.";
+      return {
+        reply: "Desculpe, a IA gerou uma consulta que não passou nos critérios de segurança ou não é um comando de leitura válido."
+      };
     }
 
-    // 4. Executar a query gerada no banco de dados ativo do cliente
+    // 4. Executar a query gerada no banco de dados ativo do cliente..
     let resultadoDados: any;
     const { type, client } = activeConnection;
 
@@ -96,15 +95,18 @@ export async function executarAgente(perguntaUsuario: string, activeConnection: 
         const resQuery = await connection.execute(sqlGerado);
         resultadoDados = resQuery.rows;
       } finally {
-        await connection.close(); // Sempre fecha a conexão devolvendo-a para o pool
+        await connection.close();
       }
     }
 
     console.log(`📊 Dados obtidos do banco:`, resultadoDados);
 
-    // 5. Montar o prompt de análise dos dados
+    // 5. Verificar se o usuário pediu explicitamente para gerar Excel ou arquivo/planilha
+    const pediuExcel = /excel|planilha|baixar|csv|arquivo|exportar/i.test(perguntaUsuario);
+
+    // 6. Montar o prompt de análise dos dados
     const promptAnalise = `
-      Atue como um analista de negócios e assistente financeiro virtual.
+      Atue como uma analista de negócios e assistente financeiro virtual.
       O usuário fez a seguinte pergunta: "${perguntaUsuario}"
       O banco de dados retornou o seguinte resultado bruto em JSON:
       ${JSON.stringify(resultadoDados, null, 2)}
@@ -112,13 +114,29 @@ export async function executarAgente(perguntaUsuario: string, activeConnection: 
       Elabore uma resposta humanizada, profissional, direta ao ponto e utilize bullet points para destacar as informações mais importantes encontradas. Se o resultado estiver vazio, informe educadamente que nenhum registro foi encontrado.
     `;
 
-    // Chamada centralizada da IA para analisar os resultados
     const respostaFinalTexto = await gerarConteudoIA(promptAnalise);
 
-    return respostaFinalTexto || "Dados processados com sucesso, mas sem texto de retorno.";
+    // SE O USUÁRIO PEDIU EXCEL: Forçamos a entrega dos dados brutos estruturados para o card aparecer!
+    if (pediuExcel) {
+      return {
+        reply: respostaFinalTexto || "Aqui está a análise solicitada e a planilha pronta para download:",
+        fileData: {
+          type: "excel",
+          filename: `relatorio_clientes_${Date.now()}.xlsx`,
+          rows: Array.isArray(resultadoDados) && resultadoDados.length > 0 ? resultadoDados : [{ Info: "Nenhum dado retornado" }]
+        }
+      };
+    }
+
+    // Retorno normal apenas com texto (caso não tenha pedido arquivo)
+    return {
+      reply: respostaFinalTexto || "Dados processados com sucesso, mas sem texto de retorno."
+    };
 
   } catch (error: any) {
     console.error("Erro no Text-to-SQL dinâmico:", error);
-    return `Erro ao executar a consulta no banco de dados: ${error.message || 'Erro interno'}`;
+    return {
+      reply: `Erro ao executar a consulta no banco de dados: ${error.message || 'Erro interno'}`
+    };
   }
 }
