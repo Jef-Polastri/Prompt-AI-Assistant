@@ -230,6 +230,7 @@ export default function ChatPage() {
     let currentSessionId = activeSessionId;
     
     try {
+      // 1. Se não existe uma sessão ativa, cria uma nova no Supabase e aguarda o ID
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
         
@@ -246,12 +247,15 @@ export default function ChatPage() {
         }
       }
 
+      // 2. Salva a mensagem do usuário na tabela chat_messages (incluindo user_id)
       if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
+        const { error: msgUserError } = await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
         ]);
+        if (msgUserError) console.error('Erro ao salvar msg do user:', msgUserError);
       }
 
+      // 3. Chama a API de backend para processar os dados do banco
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -274,10 +278,14 @@ export default function ChatPage() {
 
       setMessages((prev) => [...prev, newAssistantMessage]);
 
+      setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
+
+      // 4. Salva a resposta do assistente na tabela chat_messages (incluindo user_id)
       if (currentSessionId && user) {
-        await supabase.from('chat_messages').insert([
+        const { error: msgAsstError } = await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
         ]);
+        if (msgAsstError) console.error('Erro ao salvar msg do assistente:', msgAsstError);
       }
 
     } catch (err: any) {
