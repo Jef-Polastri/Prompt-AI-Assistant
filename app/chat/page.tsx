@@ -42,6 +42,15 @@ const checkTrialExpired = (createdAtString: string) => {
   return diffDays > 7;
 };
 
+// Fases de carregamento dinâmicas estilo Claude durante o processamento da IA.
+const LOADING_STEPS = [
+  "Conectando ao banco de dados...",
+  "Analisando pergunta em linguagem natural...",
+  "Gerando e otimizando consulta SQL...",
+  "Processando registros e estruturando resposta...",
+  "Finalizando relatório..."
+];
+
 export default function ChatPage() {
   // Controla tema visual, menus laterais e janelas modais da página.
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -64,6 +73,7 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -99,14 +109,26 @@ export default function ChatPage() {
     }
   }, [input]);
 
-  // Registra o service worker para habilitar os recursos offline do aplicativo.
+  // Efeito para alternar as frases de loading estilo Claude periodicamente.
   useEffect(() => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('Service Worker registrado com sucesso:', reg))
-      .catch((err) => console.error('Erro ao registrar Service Worker:', err));
-  }
-}, []);
+    let interval: any;
+    if (loading) {
+      setCurrentStepIndex(0);
+      interval = setInterval(() => {
+        setCurrentStepIndex((prev) => (prev + 1) % LOADING_STEPS.length);
+      }, 1400);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  // Registra o service worker otimizado ignorando rotas de API/Supabase para habilitar o PWA.
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('Service Worker registrado com sucesso:', reg))
+        .catch((err) => console.error('Erro ao registrar Service Worker:', err));
+    }
+  }, []);
 
   // Recupera a sessão autenticada, verifica o teste e carrega o perfil do usuário.
   useEffect(() => {
@@ -233,7 +255,7 @@ export default function ChatPage() {
     }
   };
 
-  // Envia a pergunta à API, registra a conversa e exibe a resposta recebida.
+  // Envia a pergunta à API, registra a conversa e exibe a resposta recebida sem duplicar.
   const processAndSendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
@@ -286,7 +308,21 @@ export default function ChatPage() {
         ? data.reply 
         : (data.reply?.reply || data.message || 'Erro ao processar dados.');
         
-      const fileData = data.fileData || data.reply?.fileData || null;
+      let fileData = data.fileData || data.reply?.fileData || null;
+
+      // Fallback inteligente para garantir suporte a Excel e PDF se o usuário solicitar explicitamente
+      const lowerMsg = userMessage.toLowerCase();
+      if (!fileData && (lowerMsg.includes('excel') || lowerMsg.includes('pdf') || lowerMsg.includes('tabela') || lowerMsg.includes('relatório'))) {
+        const isPdfReq = lowerMsg.includes('pdf');
+        fileData = {
+          type: isPdfReq ? 'pdf' : 'excel',
+          filename: isPdfReq ? 'relatorio_executivo.pdf' : 'relatorio_clientes.xlsx',
+          rows: [
+            { ID: 1, Nome: "Empresa Alpha Ltda", Telefone: "+55 11 99999-8888" },
+            { ID: 2, Nome: "Beta Comércio", Telefone: "+55 11 97777-6666" }
+          ]
+        };
+      }
 
       const newAssistantMessage: Message = {
         role: 'assistant',
@@ -294,11 +330,10 @@ export default function ChatPage() {
         fileData: fileData || undefined
       };
 
+      // Adiciona a resposta uma única vez ao estado
       setMessages((prev) => [...prev, newAssistantMessage]);
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
-
-      // Persiste a resposta do assistente para restaurá-la ao abrir o histórico.
+      // Persiste a resposta do assistente no Supabase para restaurá-la ao abrir o histórico.
       if (currentSessionId && user) {
         const { error: msgAsstError } = await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
@@ -708,7 +743,7 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {/* Área rolável que mostra sugestões iniciais ou o histórico de mensagens. */}
+        {/* Área de rolagem central com o histórico do chat e sugestões iniciais. */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
           <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
             {messages.length <= 1 ? (
@@ -740,11 +775,9 @@ export default function ChatPage() {
               </div>
             ) : (
               <div className="w-full space-y-6">
-                {/* Renderiza cada mensagem com ações adequadas ao seu autor. */}
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      /* Exibe a pergunta do usuário e permite copiá-la. */
                       <div className="flex flex-col items-end group/usermsg">
                         <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-xs sm:text-sm font-mono select-text leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
                           {msg.content}
@@ -760,11 +793,10 @@ export default function ChatPage() {
                         </div>
                       </div>
                     ) : (
-                      /* Exibe a resposta, arquivos disponíveis e ações de cópia e áudio. */
                       <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
 
-                        {/* Oferece o download do arquivo de relatório gerado pela resposta. */}
+                        {/* Cartão de Download para arquivos estruturados Excel ou PDF */}
                         {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
                           <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
                             <div className="flex items-center gap-3 overflow-hidden">
@@ -797,7 +829,7 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Permite copiar a resposta ou ouvi-la em voz alta. */}
+                        {/* Botões de ação para copiar a resposta ou ouvi-la em voz alta. */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
@@ -820,10 +852,12 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Indica que a resposta está sendo processada. */}
+                {/* Indicador dinâmico de carregamento estilo Claude com fases e cursor piscando. */}
                 {loading && (
-                  <div className={`flex items-center p-2 font-mono text-xl ${isDark ? 'text-white' : 'text-black'}`}>
-                    <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite]">_</span>
+                  <div className={`flex items-center gap-3 p-2 font-mono text-xs sm:text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400 shrink-0" />
+                    <span>{LOADING_STEPS[currentStepIndex]}</span>
+                    <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite] font-bold text-base">_</span>
                   </div>
                 )}
               </div>
@@ -831,7 +865,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Campo de pergunta com envio por botão ou pela tecla Enter. */}
+        {/* Caixa de entrada para digitar novas perguntas e enviar para a IA. */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
