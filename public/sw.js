@@ -7,22 +7,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignora requisições que não sejam GET (como chamadas de API POST do Supabase/Banco)
-  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+
+  // Ignora requisições para APIs, Supabase ou rotas dinâmicas do Next.js
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api') ||
+    url.hostname.includes('supabase.co')
+  ) {
+    return;
+  }
 
   event.respondWith(
-    fetch(event.request)
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          // Retorna o cache se existir, senão retorna uma resposta vazia para evitar o erro de tipo
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          return new Response('Network error happened', {
-            status: 408,
-            headers: { 'Content-Type': 'text/plain' },
-          });
-        });
-      })
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
   );
 });
