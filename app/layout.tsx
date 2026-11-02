@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-// @ts-expect-error CSS imports are handled by Next.js at build time.
 import "./globals.css";
 
 const geistSans = Geist({
