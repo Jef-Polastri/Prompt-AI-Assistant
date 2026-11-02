@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { supabase } from '@/utils/supabase';
 
 export default function LoginPage() {
+  // Armazena e exibe mensagens de erro durante a autenticação.
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Inicia a autenticação OAuth com o provedor escolhido e registra falhas.
   const handleOAuthLogin = async (provider: 'google' | 'azure' | 'github') => {
     try {
       setErrorMessage('');
@@ -24,10 +26,11 @@ export default function LoginPage() {
     }
   };
 
+  // Renderiza a página de login, os provedores de acesso e os links do rodapé.
   return (
     <div className="flex flex-col justify-between min-h-screen w-screen bg-[#000000] text-[#ececec] font-sans p-6 md:p-8 select-none relative overflow-hidden">
 
-      {/* Top Bar Logo */}
+      {/* Identifica o produto no topo da página. */}
       <header className="flex items-center gap-3">
        {/* <img 
           src="/logos/LogoPrompt.png" 
@@ -39,23 +42,24 @@ export default function LoginPage() {
         </span>
       </header>
 
-      {/* Center Container */}
+      {/* Área central com o título, erros de autenticação e opções de login. */}
       <main className="w-full max-w-[360px] mx-auto space-y-6 text-center my-auto">
         
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
           Access your workspace
         </h1>
 
+        {/* Mostra o erro retornado pelo provedor, quando houver. */}
         {errorMessage && (
           <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
             {errorMessage}
           </div>
         )}
 
-        {/* OAuth Buttons */}
+        {/* Oferece autenticação por provedores OAuth compatíveis. */}
         <div className="space-y-3 pt-2">
 
-          {/* Google */}
+          {/* Inicia o login usando uma conta Google. */}
           <button
             onClick={() => handleOAuthLogin('google')}
             className="w-full bg-[#212121] hover:bg-[#2e2e2e] text-1xl font-medium text-white py-3.5 px-4 rounded-full transition-all cursor-pointer flex items-center justify-center gap-3 border border-white/5 active:scale-[0.98]"
@@ -69,7 +73,7 @@ export default function LoginPage() {
             <span>Continue with Google</span>
           </button>
 
-          {/* Microsoft */}
+          {/* Inicia o login usando uma conta Microsoft/Azure. */}
           <button
             onClick={() => handleOAuthLogin('azure')}
             className="w-full bg-[#212121] hover:bg-[#2e2e2e] text-1xl font-medium text-white py-3.5 px-4 rounded-full transition-all cursor-pointer flex items-center justify-center gap-3 border border-white/5 active:scale-[0.98]"
@@ -83,7 +87,7 @@ export default function LoginPage() {
             <span>Continue with Microsoft</span>
           </button>
 
-          {/* GitHub */}
+          {/* Inicia o login usando uma conta GitHub. */}
           <button
             onClick={() => handleOAuthLogin('github')}
             className="w-full bg-[#212121] hover:bg-[#2e2e2e] text-1xl font-medium text-white py-3.5 px-4 rounded-full transition-all cursor-pointer flex items-center justify-center gap-3 border border-white/5 active:scale-[0.98]"
@@ -97,7 +101,7 @@ export default function LoginPage() {
         </div>
       </main>
 
-      {/* Footer */}
+      {/* Exibe a marca e os links para os termos e a política de privacidade. */}
       <footer className="flex flex-col items-center gap-2 text-center text-xs text-[#676767]">
          <span className="font-mono font-semibold text-1xl text-white tracking-tight">
           Prompt.ai
