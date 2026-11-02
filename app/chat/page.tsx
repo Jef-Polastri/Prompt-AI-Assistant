@@ -11,24 +11,28 @@ import ReactMarkdown from 'react-markdown';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
+// Define os dados de um arquivo gerado pela resposta do assistente.
 interface FileData {
   type: 'excel' | 'pdf';
   filename: string;
   rows: any[];
 }
 
+// Define o formato das mensagens exibidas e salvas no histórico do chat.
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   fileData?: FileData;
 }
 
+// Representa uma conversa salva para o usuário atual.
 interface ChatSession {
   id: string;
   title: string;
   created_at: string;
 }
 
+// Verifica se o período de teste de sete dias já terminou.
 const checkTrialExpired = (createdAtString: string) => {
   if (!createdAtString) return false;
   const createdAt = new Date(createdAtString);
@@ -39,6 +43,7 @@ const checkTrialExpired = (createdAtString: string) => {
 };
 
 export default function ChatPage() {
+  // Controla tema visual, menus laterais e janelas modais da página.
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -49,6 +54,7 @@ export default function ChatPage() {
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [tempNameInput, setTempNameInput] = useState('');
 
+  // Mantém as mensagens atuais da conversa e o texto digitado pelo usuário.
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -64,11 +70,13 @@ export default function ChatPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
 
+  // Controla a reprodução de áudio e os dados das conversas salvas.
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
+  // Armazena as credenciais e o estado da conexão com o banco de dados.
   const [dbType, setDbType] = useState('postgres');
   const [dbConfig, setDbConfig] = useState({
     host: 'localhost',
@@ -83,6 +91,7 @@ export default function ChatPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Ajusta a altura da caixa de texto conforme o usuário digita.
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -90,7 +99,7 @@ export default function ChatPage() {
     }
   }, [input]);
 
-  
+  // Registra o service worker para habilitar os recursos offline do aplicativo.
   useEffect(() => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
@@ -99,7 +108,7 @@ export default function ChatPage() {
   }
 }, []);
 
-
+  // Recupera a sessão autenticada, verifica o teste e carrega o perfil do usuário.
   useEffect(() => {
     async function checkUser() {
       try {
@@ -129,6 +138,7 @@ export default function ChatPage() {
     checkUser();
   }, []);
 
+  // Salva o nome informado no navegador e fecha a janela de personalização.
   const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tempNameInput.trim() || !user) return;
@@ -137,6 +147,7 @@ export default function ChatPage() {
     setIsNameModalOpen(false);
   };
 
+  // Busca no Supabase as conversas anteriores do usuário.
   const loadSessions = async (userId: string) => {
     try {
       const { data } = await supabase
@@ -150,6 +161,7 @@ export default function ChatPage() {
     }
   };
 
+  // Abre uma conversa selecionada e carrega suas mensagens em ordem cronológica.
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoading(true);
@@ -166,6 +178,7 @@ export default function ChatPage() {
     }
   };
 
+  // Limpa a conversa atual e prepara uma nova consulta.
   const handleNewChat = () => {
     setActiveSessionId(null);
     setIsMobileMenuOpen(false);
@@ -174,6 +187,7 @@ export default function ChatPage() {
     ]);
   };
 
+  // Exclui uma conversa do histórico e encerra-a se estiver aberta.
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
@@ -183,12 +197,14 @@ export default function ChatPage() {
     }
   };
 
+  // Interrompe o áudio, encerra a sessão autenticada e volta à tela de login.
   const handleLogout = async () => {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
 
+  // Testa as credenciais do banco e atualiza o estado da conexão.
   const handleConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTrialExpired) return;
@@ -217,6 +233,7 @@ export default function ChatPage() {
     }
   };
 
+  // Envia a pergunta à API, registra a conversa e exibe a resposta recebida.
   const processAndSendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
@@ -231,7 +248,7 @@ export default function ChatPage() {
     let currentSessionId = activeSessionId;
     
     try {
-      // 1. Se não existe uma sessão ativa, cria uma nova no Supabase e aguarda o ID
+      // Cria uma conversa no Supabase quando ainda não existe uma sessão ativa.
       if (!currentSessionId && user) {
         const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
         
@@ -248,7 +265,7 @@ export default function ChatPage() {
         }
       }
 
-      // 2. Salva a mensagem do usuário na tabela chat_messages (incluindo user_id)
+      // Persiste a pergunta do usuário na conversa atual.
       if (currentSessionId && user) {
         const { error: msgUserError } = await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
@@ -256,7 +273,7 @@ export default function ChatPage() {
         if (msgUserError) console.error('Erro ao salvar msg do user:', msgUserError);
       }
 
-      // 3. Chama a API de backend para processar os dados do banco
+      // Envia a pergunta e a conexão ativa à API que consulta o banco de dados.
       const response = await fetch('/api/connect-db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -281,7 +298,7 @@ export default function ChatPage() {
 
       setMessages((prev) => [...prev, { role: 'assistant', content: assistantReply }]);
 
-      // 4. Salva a resposta do assistente na tabela chat_messages (incluindo user_id)
+      // Persiste a resposta do assistente para restaurá-la ao abrir o histórico.
       if (currentSessionId && user) {
         const { error: msgAsstError } = await supabase.from('chat_messages').insert([
           { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
@@ -300,17 +317,20 @@ export default function ChatPage() {
     }
   };
 
+  // Intercepta o envio do formulário e encaminha o texto digitado ao chat.
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     processAndSendMessage(input);
   };
 
+  // Copia o conteúdo de uma mensagem e mostra temporariamente a confirmação.
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Inicia ou interrompe a leitura em voz alta de uma resposta.
   const toggleSpeech = (text: string, index: number) => {
     if (!('speechSynthesis' in window)) {
       alert('Seu navegador não suporta síntese de voz.');
@@ -342,6 +362,7 @@ export default function ChatPage() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Converte as linhas retornadas pelo banco em uma planilha Excel para download.
   const downloadExcel = (rows: any[], filename = 'prompt-ai-report.xlsx') => {
     const worksheet = XLSX.utils.json_to_sheet(rows && rows.length > 0 ? rows : [{ Info: "No tabular data returned" }]);
     const workbook = XLSX.utils.book_new();
@@ -349,6 +370,7 @@ export default function ChatPage() {
     XLSX.writeFile(workbook, filename);
   };
 
+  // Formata o texto da resposta em PDF e inicia o download do relatório.
   const downloadPDF = (content: string, filename = 'prompt-ai-report.pdf') => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "normal");
@@ -360,6 +382,7 @@ export default function ChatPage() {
     doc.save(filename);
   };
 
+  // Exibe o indicador de carregamento enquanto a sessão do usuário é verificada.
   if (loadingSession) {
     return (
       <div className={`flex h-screen w-screen items-center justify-center font-sans ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
@@ -371,10 +394,11 @@ export default function ChatPage() {
   const displayName = userName || user?.email?.split('@')[0] || 'User';
   const isDark = theme === 'dark';
 
+  // Renderiza as janelas, a navegação, o histórico e a área principal do chat.
   return (
     <div className={`flex h-screen font-sans overflow-hidden relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
 
-      {/* MODAL DE NOME DO USUÁRIO */}
+      {/* Solicita e salva o nome de exibição do usuário. */}
       {isNameModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
@@ -406,7 +430,7 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* MODAL DE CONFIGURAÇÃO DE BANCO DE DADOS */}
+      {/* Permite configurar e testar a conexão com o banco de dados. */}
       {isDbConfigModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
@@ -518,12 +542,12 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Mobile Backdrop */}
+      {/* Fecha o menu móvel quando o usuário toca fora da barra lateral. */}
       {isMobileMenuOpen && (
         <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
       )}
 
-      {/* Sidebar */}
+      {/* Barra lateral com criação de conversa, histórico e menu do usuário. */}
       <aside className={`
         fixed md:relative inset-y-0 left-0 z-40 font-sans
         ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
@@ -556,7 +580,7 @@ export default function ChatPage() {
             </div>
           </button>
 
-          {/* History */}
+          {/* Lista as conversas recentes e permite abrir ou excluir cada uma. */}
           <div className="flex-1 overflow-y-auto space-y-1 pt-2 pr-1">
             <p className={`px-2 py-1 text-[11px] font-semibold ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>Recent Queries</p>
             {sessions.map((session) => (
@@ -574,7 +598,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* User Footer */}
+        {/* Mostra o perfil atual e oferece a ação de sair da conta. */}
         <div className={`p-3 border-t relative font-sans ${isDark ? 'border-white/5' : 'border-black/5'}`}>
           {isUserMenuOpen && (
             <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
@@ -599,10 +623,10 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* Conteúdo principal: cabeçalho, mensagens e campo para novas perguntas. */}
       <main className={`relative flex-1 flex flex-col h-full overflow-hidden font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
 
-        {/* Header */}
+        {/* Cabeçalho com navegação, estado da conexão e configurações. */}
         <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
           <div className="flex items-center gap-2">
             <button
@@ -637,7 +661,7 @@ export default function ChatPage() {
               {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
             </a>
 
-            {/* Ícones da engrenagem em preto e branco */}
+            {/* Menu para configurar o banco e alternar o tema visual. */}
             <div className="relative">
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -684,7 +708,7 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {/* Scrollable Center Chat Area */}
+        {/* Área rolável que mostra sugestões iniciais ou o histórico de mensagens. */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
           <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
             {messages.length <= 1 ? (
@@ -716,10 +740,11 @@ export default function ChatPage() {
               </div>
             ) : (
               <div className="w-full space-y-6">
+                {/* Renderiza cada mensagem com ações adequadas ao seu autor. */}
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      /* Mensagem do usuário com suporte a seleção de texto (select-text), fonte mono levemente menor e botão de copiar abaixo */
+                      /* Exibe a pergunta do usuário e permite copiá-la. */
                       <div className="flex flex-col items-end group/usermsg">
                         <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-xs sm:text-sm font-mono select-text leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
                           {msg.content}
@@ -735,11 +760,11 @@ export default function ChatPage() {
                         </div>
                       </div>
                     ) : (
-                      /* Mensagem do assistente com seleção de texto (select-text) e fonte mono levemente menor */
+                      /* Exibe a resposta, arquivos disponíveis e ações de cópia e áudio. */
                       <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
 
-                        {/* CARD DE DOWNLOAD EXCEL / PDF */}
+                        {/* Oferece o download do arquivo de relatório gerado pela resposta. */}
                         {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
                           <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
                             <div className="flex items-center gap-3 overflow-hidden">
@@ -772,7 +797,7 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Botões de Ação do Assistente (Copy e Áudio em P&B) */}
+                        {/* Permite copiar a resposta ou ouvi-la em voz alta. */}
                         <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
                           <button 
                             onClick={() => handleCopy(msg.content, index)} 
@@ -795,7 +820,7 @@ export default function ChatPage() {
                   </div>
                 ))}
 
-                {/* Loading com _ piscando */}
+                {/* Indica que a resposta está sendo processada. */}
                 {loading && (
                   <div className={`flex items-center p-2 font-mono text-xl ${isDark ? 'text-white' : 'text-black'}`}>
                     <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite]">_</span>
@@ -806,7 +831,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Input Bar */}
+        {/* Campo de pergunta com envio por botão ou pela tecla Enter. */}
         <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
           <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
             <textarea
