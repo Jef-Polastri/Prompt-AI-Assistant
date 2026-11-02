@@ -11,13 +11,6 @@ import ReactMarkdown from 'react-markdown';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
-useEffect(() => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('Service Worker registrado com sucesso:', reg))
-      .catch((err) => console.error('Erro ao registrar Service Worker:', err));
-  }
-}, []);
 
 interface FileData {
   type: 'excel' | 'pdf';
@@ -97,6 +90,14 @@ export default function ChatPage() {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
     }
   }, [input]);
+
+  useEffect(() => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => console.log('Service Worker registrado com sucesso:', reg))
+      .catch((err) => console.error('Erro ao registrar Service Worker:', err));
+  }
+}, []);
 
   useEffect(() => {
     async function checkUser() {
