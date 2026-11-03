@@ -410,14 +410,16 @@ export default function ChatPage() {
     XLSX.writeFile(workbook, filename);
   };
 
-  // Formata o texto da resposta em PDF e inicia o download do relatório.
+  // Formata o texto da resposta em PDF limpo, removendo asteriscos e exportando apenas a mensagem atual.
   const downloadPDF = (content: string, filename = 'prompt-ai-report.pdf') => {
+    const cleanContent = content.replace(/[*_#`]/g, '');
+    
     const doc = new jsPDF();
     doc.setFont("helvetica", "normal");
     doc.setFontSize(14);
     doc.text("Prompt.ai - Executive Report", 14, 20);
     doc.setFontSize(10);
-    const splitText = doc.splitTextToSize(content, 180);
+    const splitText = doc.splitTextToSize(cleanContent, 180);
     doc.text(splitText, 14, 35);
     doc.save(filename);
   };
@@ -426,7 +428,7 @@ export default function ChatPage() {
   if (loadingSession) {
     return (
       <div className={`flex h-screen w-screen items-center justify-center font-sans ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
-        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400"/>
       </div>
     );
   }
@@ -443,7 +445,7 @@ export default function ChatPage() {
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
             <div className="flex items-center gap-2 mb-3">
-              <User className="w-5 h-5 text-neutral-400" />
+              <User className="w-5 h-5 text-neutral-400"/>
               <h3 className="text-sm font-semibold">Como gostaria de ser chamado?</h3>
             </div>
             <p className={`text-xs mb-4 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
@@ -476,14 +478,14 @@ export default function ChatPage() {
           <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-neutral-400" />
+                <Database className="w-5 h-5 text-neutral-400"/>
                 <h3 className="text-base font-semibold">Database Connection</h3>
               </div>
               <button
                 onClick={() => setIsDbConfigModalOpen(false)}
                 className={`p-1.5 rounded-full transition ${isDark ? 'hover:bg-[#212121] text-[#8e8e8e]' : 'hover:bg-gray-100 text-gray-500'}`}
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5"/>
               </button>
             </div>
 
@@ -573,7 +575,7 @@ export default function ChatPage() {
                   disabled={connecting || isTrialExpired}
                   className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
                 >
-                  {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {connecting && <Loader2 className="w-4 h-4 animate-spin"/>}
                   {isConnected ? 'Reconnect Database' : 'Connect DBMS'}
                 </button>
               </div>
@@ -605,7 +607,7 @@ export default function ChatPage() {
               className={`p-1.5 rounded-lg transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'}`}
               title="Close sidebar"
             >
-              <PanelLeftClose className="w-5 h-5" />
+              <PanelLeftClose className="w-5 h-5"/>
             </button>
           </div>
 
@@ -631,7 +633,7 @@ export default function ChatPage() {
               >
                 <span className="truncate pr-4">{session.title}</span>
                 <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5"/>
                 </button>
               </div>
             ))}
@@ -643,7 +645,7 @@ export default function ChatPage() {
           {isUserMenuOpen && (
             <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
               <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'}`}>
-                <LogOut className="w-4 h-4 text-red-400" />
+                <LogOut className="w-4 h-4 text-red-400"/>
                 <span>Log out</span>
               </button>
             </div>
@@ -674,7 +676,7 @@ export default function ChatPage() {
               className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
               title="Open menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5"/>
             </button>
 
             {!isSidebarOpen && (
@@ -683,7 +685,7 @@ export default function ChatPage() {
                 className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
                 title="Show sidebar"
               >
-                <PanelLeft className="w-5 h-5" />
+                <PanelLeft className="w-5 h-5"/>
               </button>
             )}
 
@@ -708,7 +710,7 @@ export default function ChatPage() {
                 className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-white hover:bg-[#212121]' : 'text-black hover:bg-[#f0f0f0]'}`}
                 title="Settings"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-5 h-5"/>
               </button>
 
               {isSettingsOpen && (
@@ -717,7 +719,7 @@ export default function ChatPage() {
                     onClick={() => { setIsDbConfigModalOpen(true); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`}
                   >
-                    <Database className="w-4 h-4 text-neutral-400" />
+                    <Database className="w-4 h-4 text-neutral-400"/>
                     <span>Database Connection</span>
                   </button>
 
@@ -731,16 +733,16 @@ export default function ChatPage() {
                     onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-gray-100 text-black'}`}
                   >
-                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-neutral-400" /><span>Dark Mode</span></div>
-                    {isDark && <Check className="w-3.5 h-3.5 text-neutral-400" />}
+                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-neutral-400"/><span>Dark Mode</span></div>
+                    {isDark && <Check className="w-3.5 h-3.5 text-neutral-400"/>}
                   </button>
 
                   <button
                     onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-gray-100 font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
                   >
-                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-neutral-600" /><span>Light Mode</span></div>
-                    {!isDark && <Check className="w-3.5 h-3.5 text-neutral-800" />}
+                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-neutral-600"/><span>Light Mode</span></div>
+                    {!isDark && <Check className="w-3.5 h-3.5 text-neutral-800"/>}
                   </button>
                 </div>
               )}
@@ -793,7 +795,7 @@ export default function ChatPage() {
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
                             title="Copy"
                           >
-                            {copiedIndex === index ? <Check className="w-3.5 h-3.5 text-neutral-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedIndex === index ? <Check className="w-3.5 h-3.5 text-neutral-400"/> : <Copy className="w-3.5 h-3.5"/>}
                           </button>
                         </div>
                       </div>
@@ -801,13 +803,12 @@ export default function ChatPage() {
                       <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 [&>hr]:hidden ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
                         <ReactMarkdown
                           components={{
-                            // Renderiza blocos de código SQL com bordas, fundo de terminal e padding elegante
                             code({ node, inline, className, children, ...props }: any) {
                               const match = /language-(\w+)/.exec(className || '');
-                              return !inline ? (
-                                <div className={`my-3 rounded-2xl border overflow-hidden ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-gray-100 border-black/10 text-black'}`}>
+                              return !inline && match ? (
+                                <div className={`my-3 rounded-2xl overflow-hidden border ${isDark ? 'bg-[#171717] border-white/10' : 'bg-gray-100 border-black/10'}`}>
                                   <div className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider border-b flex items-center justify-between ${isDark ? 'bg-[#212121] border-white/10 text-neutral-400' : 'bg-gray-200 border-black/10 text-neutral-600'}`}>
-                                    <span>{match ? match[1] : 'sql'}</span>
+                                    <span>{match[1]}</span>
                                   </div>
                                   <pre className="p-4 overflow-x-auto text-xs font-mono leading-relaxed">
                                     <code className={className} {...props}>
@@ -831,7 +832,7 @@ export default function ChatPage() {
                           <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${msg.fileData.type === 'excel' ? 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20' : 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20'}`}>
-                                {msg.fileData.type === 'excel' ? <FileSpreadsheet className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                {msg.fileData.type === 'excel' ? <FileSpreadsheet className="w-5 h-5"/> : <FileText className="w-5 h-5"/>}
                               </div>
                               <div className="overflow-hidden">
                                 <p className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>
@@ -853,7 +854,7 @@ export default function ChatPage() {
                               }}
                               className={`px-3.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
                             >
-                              <Download className="w-3.5 h-3.5" />
+                              <Download className="w-3.5 h-3.5"/>
                               <span>Download</span>
                             </button>
                           </div>
@@ -866,7 +867,7 @@ export default function ChatPage() {
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
                             title="Copy"
                           >
-                            {copiedIndex === index ? <Check className="w-4 h-4 text-neutral-400" /> : <Copy className="w-4 h-4" />}
+                            {copiedIndex === index ? <Check className="w-4 h-4 text-neutral-400"/> : <Copy className="w-4 h-4"/>}
                           </button>
 
                           <button 
@@ -874,7 +875,7 @@ export default function ChatPage() {
                             className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
                             title={speakingIndex === index ? "Parar áudio" : "Ouvir áudio"}
                           >
-                            {speakingIndex === index ? <Square className="w-4 h-4 text-neutral-400 fill-current" /> : <Volume2 className="w-4 h-4" />}
+                            {speakingIndex === index ? <Square className="w-4 h-4 text-neutral-400 fill-current"/> : <Volume2 className="w-4 h-4"/>}
                           </button>
                         </div>
                       </div>
@@ -885,7 +886,7 @@ export default function ChatPage() {
                 {/* Indicador dinâmico de carregamento estilo Claude com fases e cursor piscando. */}
                 {loading && (
                   <div className={`flex items-center gap-3 p-2 font-mono text-xs sm:text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400 shrink-0" />
+                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400 shrink-0"/>
                     <span>{LOADING_STEPS[currentStepIndex]}</span>
                     <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite] font-bold text-base">_</span>
                   </div>
@@ -917,7 +918,7 @@ export default function ChatPage() {
               disabled={!input.trim() || loading || !isConnected || isTrialExpired}
               className={`p-2 rounded-full transition cursor-pointer mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4"/>
             </button>
           </form>
           <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
