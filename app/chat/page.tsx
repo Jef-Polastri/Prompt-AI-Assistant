@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import {
   Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
-  Trash2, Database, PanelLeftClose, PanelLeft, Menu, X, AlertTriangle,
+  Trash2, Database, PanelLeftClose, PanelLeft, Menu, X,
   Settings, Sun, Moon, FileSpreadsheet, FileText, Download, Volume2, Square, User
 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
@@ -183,7 +183,7 @@ export default function ChatPage() {
     }
   };
 
-  // Abre uma conversa selecionada e carrega suas mensagens em ordem cronológica.
+  // Abre uma conversa selecionada e carrega suas mensagens em ordem cronológica (incluindo file_data).
   const handleSelectSession = async (sessionId: string) => {
     setActiveSessionId(sessionId);
     setLoading(true);
@@ -191,10 +191,18 @@ export default function ChatPage() {
     try {
       const { data } = await supabase
         .from('chat_messages')
-        .select('role, content')
+        .select('role, content, file_data')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
-      if (data && data.length > 0) setMessages(data as Message[]);
+        
+      if (data && data.length > 0) {
+        const formattedMessages: Message[] = data.map((item: any) => ({
+          role: item.role,
+          content: item.content,
+          fileData: item.file_data || undefined
+        }));
+        setMessages(formattedMessages);
+      }
     } finally {
       setLoading(false);
     }
@@ -255,7 +263,7 @@ export default function ChatPage() {
     }
   };
 
-  // Envia a pergunta à API, registra a conversa e exibe a resposta recebida sem duplicar.
+  // Envia a pergunta à API, registra a conversa e salva a mensagem e os arquivos gerados no Supabase.
   const processAndSendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
 
@@ -310,7 +318,7 @@ export default function ChatPage() {
         
       let fileData = data.fileData || data.reply?.fileData || null;
 
-      // Fallback robusto e inteligente: se a IA disser que tem limitações para PDF/Excel ou o usuário pedir explicitamente, geramos o arquivo no front-end
+      // Fallback robusto e inteligente: se a IA indicar limitação ou o usuário pedir explicitamente PDF/Excel, geramos o arquivo
       const lowerMsg = userMessage.toLowerCase();
       const isPdfReq = lowerMsg.includes('pdf');
       const isExcelReq = lowerMsg.includes('excel') || lowerMsg.includes('tabela') || lowerMsg.includes('csv');
@@ -335,15 +343,21 @@ export default function ChatPage() {
         fileData: fileData || undefined
       };
 
-      // Adiciona a resposta uma única vez ao estado
+      // Adiciona a resposta ao estado atual
       setMessages((prev) => [...prev, newAssistantMessage]);
 
-      // Persiste a resposta do assistente no Supabase para restaurá-la ao abrir o histórico.
+      // Persiste a resposta do assistente JUNTAMENTE com o file_data no Supabase
       if (currentSessionId && user) {
         const { error: msgAsstError } = await supabase.from('chat_messages').insert([
-          { session_id: currentSessionId, user_id: user.id, role: 'assistant', content: assistantReply }
+          { 
+            session_id: currentSessionId, 
+            user_id: user.id, 
+            role: 'assistant', 
+            content: assistantReply,
+            file_data: fileData || null 
+          }
         ]);
-        if (msgAsstError) console.error('Erro ao salvar msg do assistente:', msgAsstError);
+        if (msgAsstError) console.error('Erro ao salvar msg do assistente com arquivo:', msgAsstError);
       }
 
     } catch (err: any) {
@@ -827,7 +841,7 @@ export default function ChatPage() {
                           {msg.content}
                         </ReactMarkdown>
 
-                        {/* Cartão de Download para arquivos estruturados Excel ou PDF */}
+                        {/* Cartão de Download para arquivos estruturados Excel ou PDF recuperados da conversa */}
                         {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
                           <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
                             <div className="flex items-center gap-3 overflow-hidden">
