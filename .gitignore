@@ -1,0 +1,28 @@
+# Dependências e módulos do Node
+/node_modules
+/.pnpm
+/.yarn
+
+# Saídas do build do Next.js e Vercel
+/.next/
+/out/
+/build
+/.vercel
+
+# Ficheiros com Variáveis de Ambiente e Chaves de API (NUNCA SUBIR)
+.env
+.env*.local
+.env.production
+.env.development
+
+# Ficheiros do sistema operativo e da IDE
+.DS_Store
+Thumbs.db
+*.pem
+.vscode/
+.idea/
+
+# Ficheiros de logs e depuração
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

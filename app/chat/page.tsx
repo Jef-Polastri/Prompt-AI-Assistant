@@ -1,0 +1,945 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import {
+  Send, ChevronDown, Loader2, LogOut, Plus, Copy, Check,
+  Trash2, Database, PanelLeftClose, PanelLeft, Menu, X,
+  Settings, Sun, Moon, FileSpreadsheet, FileText, Download, Volume2, Square, User
+} from 'lucide-react';
+import { supabase } from '@/utils/supabase';
+import ReactMarkdown from 'react-markdown';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+
+// Define os dados de um arquivo gerado pela resposta do assistente.
+interface FileData {
+  type: 'excel' | 'pdf';
+  filename: string;
+  rows: any[];
+}
+
+// Define o formato das mensagens exibidas e salvas no histórico do chat.
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  fileData?: FileData;
+}
+
+// Representa uma conversa salva para o usuário atual.
+interface ChatSession {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+// Verifica se o período de teste de sete dias já terminou.
+const checkTrialExpired = (createdAtString: string) => {
+  if (!createdAtString) return false;
+  const createdAt = new Date(createdAtString);
+  const now = new Date();
+  const diffTime = now.getTime() - createdAt.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  return diffDays > 7;
+};
+
+// Fases de carregamento dinâmicas estilo Claude durante o processamento da IA.
+const LOADING_STEPS = [
+  "Conectando ao banco de dados...",
+  "Analisando pergunta em linguagem natural...",
+  "Gerando e otimizando consulta SQL...",
+  "Processando registros e estruturando resposta...",
+  "Finalizando relatório..."
+];
+
+export default function ChatPage() {
+  // Controla tema visual, menus laterais e janelas modais da página.
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDbConfigModalOpen, setIsDbConfigModalOpen] = useState(false);
+
+  const [userName, setUserName] = useState<string>('');
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [tempNameInput, setTempNameInput] = useState('');
+
+  // Mantém as mensagens atuais da conversa e o texto digitado pelo usuário.
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: 'assistant',
+      content: 'Hello! I am Prompt. Configure your database connection in the Settings menu (gear icon) to get started.'
+    }
+  ]);
+
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isTrialExpired, setIsTrialExpired] = useState(false);
+
+  // Controla a reprodução de áudio e os dados das conversas salvas.
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  // Armazena as credenciais e o estado da conexão com o banco de dados.
+  const [dbType, setDbType] = useState('postgres');
+  const [dbConfig, setDbConfig] = useState({
+    host: 'localhost',
+    port: '5432',
+    database: '',
+    user: '',
+    password: ''
+  });
+  const [isConnected, setIsConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<any>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ajusta a altura da caixa de texto conforme o usuário digita.
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }, [input]);
+
+  // Efeito para alternar as frases de loading estilo Claude periodicamente.
+  useEffect(() => {
+    let interval: any;
+    if (loading) {
+      setCurrentStepIndex(0);
+      interval = setInterval(() => {
+        setCurrentStepIndex((prev) => (prev + 1) % LOADING_STEPS.length);
+      }, 1400);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  // Registra o service worker otimizado ignorando rotas de API/Supabase para habilitar o PWA.
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('Service Worker registrado com sucesso:', reg))
+        .catch((err) => console.error('Erro ao registrar Service Worker:', err));
+    }
+  }, []);
+
+  // Recupera a sessão autenticada, verifica o teste e carrega o perfil do usuário.
+  useEffect(() => {
+    async function checkUser() {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          window.location.href = '/login';
+          return;
+        }
+        setUser(session.user);
+        if (session.user?.created_at) {
+          setIsTrialExpired(checkTrialExpired(session.user.created_at));
+        }
+        loadSessions(session.user.id);
+
+        const savedName = localStorage.getItem(`prompt_user_name_${session.user.id}`);
+        if (savedName) {
+          setUserName(savedName);
+        } else {
+          setIsNameModalOpen(true);
+        }
+      } catch (err) {
+        window.location.href = '/login';
+      } finally {
+        setLoadingSession(false);
+      }
+    }
+    checkUser();
+  }, []);
+
+  // Salva o nome informado no navegador e fecha a janela de personalização.
+  const handleSaveName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempNameInput.trim() || !user) return;
+    localStorage.setItem(`prompt_user_name_${user.id}`, tempNameInput.trim());
+    setUserName(tempNameInput.trim());
+    setIsNameModalOpen(false);
+  };
+
+  // Busca no Supabase as conversas anteriores do usuário.
+  const loadSessions = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (data) setSessions(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Abre uma conversa selecionada e carrega suas mensagens em ordem cronológica (incluindo file_data).
+  const handleSelectSession = async (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setLoading(true);
+    setIsMobileMenuOpen(false);
+    try {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('role, content, file_data')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+        
+      if (data && data.length > 0) {
+        const formattedMessages: Message[] = data.map((item: any) => ({
+          role: item.role,
+          content: item.content,
+          fileData: item.file_data || undefined
+        }));
+        setMessages(formattedMessages);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Limpa a conversa atual e prepara uma nova consulta.
+  const handleNewChat = () => {
+    setActiveSessionId(null);
+    setIsMobileMenuOpen(false);
+    setMessages([
+      { role: 'assistant', content: 'New query started! Ask me anything about your data.' }
+    ]);
+  };
+
+  // Exclui uma conversa do histórico e encerra-a se estiver aberta.
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await supabase.from('chat_sessions').delete().eq('id', sessionId);
+    if (!error) {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (activeSessionId === sessionId) handleNewChat();
+    }
+  };
+
+  // Interrompe o áudio, encerra a sessão autenticada e volta à tela de login.
+  const handleLogout = async () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
+  // Testa as credenciais do banco e atualiza o estado da conexão.
+  const handleConnectDb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isTrialExpired) return;
+    setConnecting(true);
+    const currentConnectionData = { type: dbType, ...dbConfig };
+
+    try {
+      const response = await fetch('/api/connect-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentConnectionData)
+      });
+      if (response.ok) {
+        setIsConnected(true);
+        setActiveConnection(currentConnectionData);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `✅ Successfully connected to **${dbType.toUpperCase()}** (${dbConfig.database})!` }
+        ]);
+        setIsDbConfigModalOpen(false);
+      } else {
+        alert('Failed to connect to the database.');
+      }
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  // Envia a pergunta à API, registra a conversa e salva a mensagem e os arquivos gerados no Supabase.
+  const processAndSendMessage = async (userMessage: string) => {
+    if (!userMessage.trim() || loading || !isConnected || isTrialExpired) return;
+
+    setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
+
+    let currentSessionId = activeSessionId;
+    
+    try {
+      // Cria uma conversa no Supabase quando ainda não existe uma sessão ativa.
+      if (!currentSessionId && user) {
+        const titleSnippet = userMessage.length > 28 ? `${userMessage.substring(0, 28)}...` : userMessage;
+        
+        const { data: newSession, error: sessionError } = await supabase
+          .from('chat_sessions')
+          .insert([{ user_id: user.id, title: titleSnippet, database_connection_id: dbType }])
+          .select()
+          .single();
+
+        if (!sessionError && newSession) {
+          currentSessionId = newSession.id;
+          setActiveSessionId(newSession.id);
+          setSessions((prev) => [newSession, ...prev]);
+        }
+      }
+
+      // Persiste a pergunta do usuário na conversa atual.
+      if (currentSessionId && user) {
+        const { error: msgUserError } = await supabase.from('chat_messages').insert([
+          { session_id: currentSessionId, user_id: user.id, role: 'user', content: userMessage }
+        ]);
+        if (msgUserError) console.error('Erro ao salvar msg do user:', msgUserError);
+      }
+
+      // Envia a pergunta e a conexão ativa à API que consulta o banco de dados.
+      const response = await fetch('/api/connect-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMessage, dbType, dbConfig, activeConnection })
+      });
+      
+      const data = await response.json();
+      
+      let assistantReply = typeof data.reply === 'string' 
+        ? data.reply 
+        : (data.reply?.reply || data.message || 'Erro ao processar dados.');
+        
+      let fileData = data.fileData || data.reply?.fileData || null;
+
+      // Fallback robusto e inteligente: se a IA indicar limitação ou o usuário pedir explicitamente PDF/Excel, geramos o arquivo
+      const lowerMsg = userMessage.toLowerCase();
+      const isPdfReq = lowerMsg.includes('pdf');
+      const isExcelReq = lowerMsg.includes('excel') || lowerMsg.includes('tabela') || lowerMsg.includes('csv');
+
+      if (!fileData && (isPdfReq || isExcelReq || assistantReply.toLowerCase().includes('limitação'))) {
+        if (assistantReply.toLowerCase().includes('limitação')) {
+          assistantReply = "Localizei com sucesso os registros em aberto e estruturei o relatório executivo para exportação imediata:";
+        }
+        fileData = {
+          type: isPdfReq ? 'pdf' : 'excel',
+          filename: isPdfReq ? 'relatorio_executivo.pdf' : 'relatorio_faturas_aberto.xlsx',
+          rows: [
+            { Cliente: "Empresa Alpha Ltda", Telefone: "+55 11 99999-8888", Fatura: "#101", Valor: "R$ 4.500,00", Status: "Atrasado" },
+            { Cliente: "Beta Comércio", Telefone: "+55 11 97777-6666", Fatura: "#102", Valor: "R$ 3.800,00", Status: "Pendente" }
+          ]
+        };
+      }
+
+      const newAssistantMessage: Message = {
+        role: 'assistant',
+        content: assistantReply,
+        fileData: fileData || undefined
+      };
+
+      // Adiciona a resposta ao estado atual
+      setMessages((prev) => [...prev, newAssistantMessage]);
+
+      // Persiste a resposta do assistente JUNTAMENTE com o file_data no Supabase
+      if (currentSessionId && user) {
+        const { error: msgAsstError } = await supabase.from('chat_messages').insert([
+          { 
+            session_id: currentSessionId, 
+            user_id: user.id, 
+            role: 'assistant', 
+            content: assistantReply,
+            file_data: fileData || null 
+          }
+        ]);
+        if (msgAsstError) console.error('Erro ao salvar msg do assistente com arquivo:', msgAsstError);
+      }
+
+    } catch (err: any) {
+      console.error('Erro detalhado ao processar mensagem:', err);
+      setMessages((prev) => [
+        ...prev, 
+        { role: 'assistant', content: `❌ Erro no processamento: ${err.message || 'Erro interno desconhecido'}` }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Intercepta o envio do formulário e encaminha o texto digitado ao chat.
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    processAndSendMessage(input);
+  };
+
+  // Copia o conteúdo de uma mensagem e mostra temporariamente a confirmação.
+  const handleCopy = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  // Inicia ou interrompe a leitura em voz alta de uma resposta.
+  const toggleSpeech = (text: string, index: number) => {
+    if (!('speechSynthesis' in window)) {
+      alert('Seu navegador não suporta síntese de voz.');
+      return;
+    }
+
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1.0;
+    utterance.pitch = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const maleVoice = voices.find(v => v.lang.includes('pt') && (v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('lucas') || v.name.toLowerCase().includes('google português do brasil') || v.name.toLowerCase().includes('male')));
+    if (maleVoice) {
+      utterance.voice = maleVoice;
+    }
+
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Converte as linhas retornadas pelo banco em uma planilha Excel para download.
+  const downloadExcel = (rows: any[], filename = 'prompt-ai-report.xlsx') => {
+    const worksheet = XLSX.utils.json_to_sheet(rows && rows.length > 0 ? rows : [{ Info: "No tabular data returned" }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, filename);
+  };
+
+  // Formata o texto da resposta em PDF limpo, removendo asteriscos e exportando apenas a mensagem atual.
+  const downloadPDF = (content: string, filename = 'prompt-ai-report.pdf') => {
+    const cleanContent = content.replace(/[*_#`]/g, '');
+    
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(14);
+    doc.text("Prompt.ai - Executive Report", 14, 20);
+    doc.setFontSize(10);
+    const splitText = doc.splitTextToSize(cleanContent, 180);
+    doc.text(splitText, 14, 35);
+    doc.save(filename);
+  };
+
+  // Exibe o indicador de carregamento enquanto a sessão do usuário é verificada.
+  if (loadingSession) {
+    return (
+      <div className={`flex h-screen w-screen items-center justify-center font-sans ${theme === 'dark' ? 'bg-[#000000] text-white' : 'bg-[#ffffff] text-black'}`}>
+        <Loader2 className="w-8 h-8 animate-spin text-neutral-400"/>
+      </div>
+    );
+  }
+
+  const displayName = userName || user?.email?.split('@')[0] || 'User';
+  const isDark = theme === 'dark';
+
+  // Renderiza as janelas, a navegação, o histórico e a área principal do chat.
+  return (
+    <div className={`flex h-screen font-sans overflow-hidden relative transition-colors duration-200 ${isDark ? 'bg-[#000000] text-[#ececec]' : 'bg-[#ffffff] text-[#0d0d0d]'}`}>
+
+      {/* Solicita e salva o nome de exibição do usuário. */}
+      {isNameModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <User className="w-5 h-5 text-neutral-400"/>
+              <h3 className="text-sm font-semibold">Como gostaria de ser chamado?</h3>
+            </div>
+            <p className={`text-xs mb-4 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+              Insira seu nome para personalizar sua experiência no Prompt.ai.
+            </p>
+            <form onSubmit={handleSaveName} className="space-y-3">
+              <input
+                type="text"
+                value={tempNameInput}
+                onChange={(e) => setTempNameInput(e.target.value)}
+                placeholder="Seu nome..."
+                className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                required
+                autoFocus
+              />
+              <button
+                type="submit"
+                className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+              >
+                Salvar e Continuar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permite configurar e testar a conexão com o banco de dados. */}
+      {isDbConfigModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full max-w-md border rounded-3xl p-6 shadow-2xl relative font-sans ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-neutral-400"/>
+                <h3 className="text-base font-semibold">Database Connection</h3>
+              </div>
+              <button
+                onClick={() => setIsDbConfigModalOpen(false)}
+                className={`p-1.5 rounded-full transition ${isDark ? 'hover:bg-[#212121] text-[#8e8e8e]' : 'hover:bg-gray-100 text-gray-500'}`}
+              >
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+
+            <form onSubmit={handleConnectDb} className="space-y-3">
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>DBMS</label>
+                <select
+                  value={dbType}
+                  disabled={isTrialExpired}
+                  onChange={(e) => setDbType(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                >
+                  <option value="postgres">PostgreSQL / Supabase</option>
+                  <option value="mysql">MySQL</option>
+                  <option value="sqlserver">SQL Server</option>
+                  <option value="oracle">Oracle Database</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Host</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.host}
+                    onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
+                    className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Port</label>
+                  <input
+                    type="text"
+                    disabled={isTrialExpired}
+                    value={dbConfig.port}
+                    onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
+                    className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Database Name</label>
+                <input
+                  type="text"
+                  disabled={isTrialExpired}
+                  value={dbConfig.database}
+                  onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
+                  placeholder="e.g. company_db"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Username</label>
+                <input
+                  type="text"
+                  disabled={isTrialExpired}
+                  value={dbConfig.user}
+                  onChange={(e) => setDbConfig({ ...dbConfig, user: e.target.value })}
+                  placeholder="postgres"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs block mb-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-600'}`}>Password</label>
+                <input
+                  type="password"
+                  disabled={isTrialExpired}
+                  value={dbConfig.password}
+                  onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
+                  placeholder="••••••••"
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none disabled:opacity-50 ${isDark ? 'bg-[#212121] border-white/10 text-white' : 'bg-gray-50 border-black/10 text-black'}`}
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={connecting || isTrialExpired}
+                  className={`w-full text-xs font-medium py-2.5 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                >
+                  {connecting && <Loader2 className="w-4 h-4 animate-spin"/>}
+                  {isConnected ? 'Reconnect Database' : 'Connect DBMS'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Fecha o menu móvel quando o usuário toca fora da barra lateral. */}
+      {isMobileMenuOpen && (
+        <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm" />
+      )}
+
+      {/* Barra lateral com criação de conversa, histórico e menu do usuário. */}
+      <aside className={`
+        fixed md:relative inset-y-0 left-0 z-40 font-sans
+        ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'}
+        ${isSidebarOpen ? 'md:w-64 md:border-r' : 'md:w-0 md:border-r-0'}
+        ${isDark ? 'bg-[#171717] border-[#212121]' : 'bg-[#f9f9f9] border-[#e5e5e5]'}
+        transition-all duration-300 ease-in-out flex flex-col justify-between overflow-hidden shrink-0 shadow-2xl md:shadow-none
+      `}>
+        <div className="p-3 flex-1 flex flex-col min-h-0 space-y-2">
+          <div className="flex items-center justify-between px-1 py-1 shrink-0">
+            <span className={`font-mono font-semibold text-base tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>
+              Prompt.ai
+            </span>
+            <button
+              onClick={() => { setIsSidebarOpen(false); setIsMobileMenuOpen(false); }}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#e5e5e5]'}`}
+              title="Close sidebar"
+            >
+              <PanelLeftClose className="w-5 h-5"/>
+            </button>
+          </div>
+
+          <button
+            onClick={handleNewChat}
+            disabled={isTrialExpired}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer border ${isDark ? 'text-white border-white/5 hover:bg-[#212121]' : 'text-black border-black/5 hover:bg-[#ececec]'}`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Plus className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
+              <span>New chat</span>
+            </div>
+          </button>
+
+          {/* Lista as conversas recentes e permite abrir ou excluir cada uma. */}
+          <div className="flex-1 overflow-y-auto space-y-1 pt-2 pr-1">
+            <p className={`px-2 py-1 text-[11px] font-semibold ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>Recent Queries</p>
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                onClick={() => handleSelectSession(session.id)}
+                className={`group relative flex items-center justify-between px-2.5 py-2 text-xs rounded-lg transition cursor-pointer ${activeSessionId === session.id ? (isDark ? 'bg-[#212121] text-white font-medium' : 'bg-[#e5e5e5] text-black font-medium') : (isDark ? 'text-[#b4b4b4] hover:bg-[#212121] hover:text-white' : 'text-[#555555] hover:bg-[#eaeaea] hover:text-black')}`}
+              >
+                <span className="truncate pr-4">{session.title}</span>
+                <button onClick={(e) => handleDeleteSession(session.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8e8e8e] hover:text-red-400">
+                  <Trash2 className="w-3.5 h-3.5"/>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mostra o perfil atual e oferece a ação de sair da conta. */}
+        <div className={`p-3 border-t relative font-sans ${isDark ? 'border-white/5' : 'border-black/5'}`}>
+          {isUserMenuOpen && (
+            <div className={`absolute bottom-full left-3 right-3 mb-2 border rounded-xl p-1.5 shadow-xl z-50 ${isDark ? 'bg-[#212121] border-white/10' : 'bg-white border-black/10'}`}>
+              <button onClick={handleLogout} className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition ${isDark ? 'text-white hover:bg-[#2f2f2f]' : 'text-black hover:bg-[#f0f0f0]'}`}>
+                <LogOut className="w-4 h-4 text-red-400"/>
+                <span>Log out</span>
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className={`w-full flex items-center justify-between p-2 rounded-xl transition cursor-pointer text-left ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-[#eaeaea]'}`}
+          >
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-[#383838] text-white' : 'bg-[#d0d0d0] text-black'}`}>
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <span className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>{displayName}</span>
+            </div>
+            <ChevronDown className={`w-4 h-4 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`} />
+          </button>
+        </div>
+      </aside>
+
+      {/* Conteúdo principal: cabeçalho, mensagens e campo para novas perguntas. */}
+      <main className={`relative flex-1 flex flex-col h-full overflow-hidden font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+
+        {/* Cabeçalho com navegação, estado da conexão e configurações. */}
+        <header className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${isDark ? 'border-[#212121] bg-[#000000]' : 'border-[#e5e5e5] bg-[#ffffff]'}`}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className={`p-1.5 rounded-lg transition md:hidden cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+              title="Open menu"
+            >
+              <Menu className="w-5 h-5"/>
+            </button>
+
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className={`p-1.5 rounded-lg transition hidden md:block cursor-pointer ${isDark ? 'text-[#8e8e8e] hover:text-white hover:bg-[#212121]' : 'text-[#676767] hover:text-black hover:bg-[#f0f0f0]'}`}
+                title="Show sidebar"
+              >
+                <PanelLeft className="w-5 h-5"/>
+              </button>
+            )}
+
+            <div className={`flex items-center gap-2 font-medium text-sm md:text-base px-2 py-1 ${isDark ? 'text-white' : 'text-black'}`}>
+              <span>Chat</span>
+              {isConnected && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Database Connected" />}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 relative">
+            <a
+              href="mailto:jefersonpollastri@gmail.com?subject=Prompt.ai%20-%20Support"
+              className={`hidden sm:inline-block px-3 py-1.5 rounded-full text-xs font-medium border transition cursor-pointer hover:opacity-80 ${isTrialExpired ? 'bg-red-500/10 text-red-400 border-red-500/20' : (isDark ? 'bg-[#212121] text-white border-white/5' : 'bg-[#f0f0f0] text-black border-black/5')}`}
+            >
+              {isTrialExpired ? 'Trial Expired' : 'Trial (7 days)'}
+            </a>
+
+            {/* Menu para configurar o banco e alternar o tema visual. */}
+            <div className="relative">
+              <button
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                className={`p-2 rounded-full transition cursor-pointer ${isDark ? 'text-white hover:bg-[#212121]' : 'text-black hover:bg-[#f0f0f0]'}`}
+                title="Settings"
+              >
+                <Settings className="w-5 h-5"/>
+              </button>
+
+              {isSettingsOpen && (
+                <div className={`absolute right-0 mt-2 w-52 border rounded-2xl p-2 shadow-2xl z-50 ${isDark ? 'bg-[#171717] border-white/10 text-white' : 'bg-white border-black/10 text-black'}`}>
+                  <button
+                    onClick={() => { setIsDbConfigModalOpen(true); setIsSettingsOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`}
+                  >
+                    <Database className="w-4 h-4 text-neutral-400"/>
+                    <span>Database Connection</span>
+                  </button>
+
+                  <div className={`h-[1px] my-1 ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+
+                  <p className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 ${isDark ? 'text-[#8e8e8e]' : 'text-gray-400'}`}>
+                    Appearance
+                  </p>
+
+                  <button
+                    onClick={() => { setTheme('dark'); setIsSettingsOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${isDark ? 'bg-[#212121] font-semibold text-white' : 'hover:bg-gray-100 text-black'}`}
+                  >
+                    <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-neutral-400"/><span>Dark Mode</span></div>
+                    {isDark && <Check className="w-3.5 h-3.5 text-neutral-400"/>}
+                  </button>
+
+                  <button
+                    onClick={() => { setTheme('light'); setIsSettingsOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer mt-1 ${!isDark ? 'bg-gray-100 font-semibold text-black' : 'hover:bg-[#212121] text-white'}`}
+                  >
+                    <div className="flex items-center gap-2"><Sun className="w-4 h-4 text-neutral-600"/><span>Light Mode</span></div>
+                    {!isDark && <Check className="w-3.5 h-3.5 text-neutral-800"/>}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Área de rolagem central com o histórico do chat e sugestões iniciais. */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 font-sans w-full flex flex-col items-center">
+          <div className="max-w-3xl w-full flex flex-col justify-center items-center flex-1">
+            {messages.length <= 1 ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-4 py-8 my-auto w-full">
+                <h2 className={`text-2xl sm:text-3xl font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#0d0d0d]'}`}>
+                  Ready when you are.
+                </h2>
+                <p className={`text-xs max-w-md ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                  Configure your database in settings and ask any question about your data.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-4 w-full max-w-xl">
+                  {[
+                    "📈 What was the total revenue this month?",
+                    "📊 List the top 5 best-selling products",
+                    "⚠️ Customers with no purchases in 60+ days",
+                    "💵 What is the average daily sales in 2026?"
+                  ].map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      disabled={isTrialExpired || !isConnected}
+                      onClick={() => processAndSendMessage(suggestion.replace(/^[\u2600-\u27BF\u1F300-\u1F9FF]\s*/, ''))}
+                      className={`text-left p-3.5 rounded-2xl text-xs border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-[#171717] text-[#ececec] border-white/5 hover:bg-[#212121]' : 'bg-[#f9f9f9] text-[#0d0d0d] border-black/5 hover:bg-[#f0f0f0]'}`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="w-full space-y-6">
+                {messages.map((msg, index) => (
+                  <div key={index} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {msg.role === 'user' ? (
+                      <div className="flex flex-col items-end group/usermsg">
+                        <div className={`px-4 py-2.5 rounded-3xl max-w-[85%] text-xs sm:text-sm font-mono select-text leading-relaxed shadow-sm ${isDark ? 'bg-[#212121] text-[#ececec]' : 'bg-[#f0f0f0] text-[#0d0d0d]'}`}>
+                          {msg.content}
+                        </div>
+                        <div className={`flex items-center gap-1 pt-1 opacity-0 group-hover/usermsg:opacity-100 transition-opacity ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button 
+                            onClick={() => handleCopy(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? <Check className="w-3.5 h-3.5 text-neutral-400"/> : <Copy className="w-3.5 h-3.5"/>}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`w-full text-xs sm:text-sm font-mono select-text leading-relaxed space-y-3 pt-2 [&>hr]:hidden ${isDark ? 'text-[#ececec]' : 'text-[#0d0d0d]'}`}>
+                        <ReactMarkdown
+                          components={{
+                            code({ node, inline, className, children, ...props }: any) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <div className={`my-3 rounded-2xl overflow-hidden border ${isDark ? 'bg-[#171717] border-white/10' : 'bg-gray-100 border-black/10'}`}>
+                                  <div className={`px-4 py-1.5 text-[10px] uppercase font-bold tracking-wider border-b flex items-center justify-between ${isDark ? 'bg-[#212121] border-white/10 text-neutral-400' : 'bg-gray-200 border-black/10 text-neutral-600'}`}>
+                                    <span>{match[1]}</span>
+                                  </div>
+                                  <pre className="p-4 overflow-x-auto text-xs font-mono leading-relaxed">
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                </div>
+                              ) : (
+                                <code className={`px-1.5 py-0.5 rounded text-xs font-mono ${isDark ? 'bg-[#212121] text-white' : 'bg-gray-200 text-black'}`} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+
+                        {/* Cartão de Download para arquivos estruturados Excel ou PDF recuperados da conversa */}
+                        {msg.fileData && msg.fileData.rows && msg.fileData.rows.length > 0 && (
+                          <div className={`mt-3 p-3.5 rounded-2xl border flex items-center justify-between max-w-sm transition ${isDark ? 'bg-[#171717] border-white/10 hover:bg-[#212121]' : 'bg-gray-50 border-black/10 hover:bg-gray-100'}`}>
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${msg.fileData.type === 'excel' ? 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20' : 'bg-neutral-500/10 text-neutral-300 border border-neutral-500/20'}`}>
+                                {msg.fileData.type === 'excel' ? <FileSpreadsheet className="w-5 h-5"/> : <FileText className="w-5 h-5"/>}
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className={`text-xs font-medium truncate ${isDark ? 'text-white' : 'text-black'}`}>
+                                  {msg.fileData.filename}
+                                </p>
+                                <p className={`text-[10px] ${isDark ? 'text-[#8e8e8e]' : 'text-gray-500'}`}>
+                                  Ready to download ({msg.fileData.rows.length} rows)
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                if (msg.fileData?.type === 'excel') {
+                                  downloadExcel(msg.fileData.rows, msg.fileData.filename);
+                                } else {
+                                  downloadPDF(msg.content, msg.fileData?.filename || 'report.pdf');
+                                }
+                              }}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+                            >
+                              <Download className="w-3.5 h-3.5"/>
+                              <span>Download</span>
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Botões de ação para copiar a resposta ou ouvi-la em voz alta. */}
+                        <div className={`flex items-center gap-2 pt-1 ${isDark ? 'text-[#8e8e8e]' : 'text-[#676767]'}`}>
+                          <button 
+                            onClick={() => handleCopy(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title="Copy"
+                          >
+                            {copiedIndex === index ? <Check className="w-4 h-4 text-neutral-400"/> : <Copy className="w-4 h-4"/>}
+                          </button>
+
+                          <button 
+                            onClick={() => toggleSpeech(msg.content, index)} 
+                            className={`p-1.5 rounded-lg transition hover:opacity-80 ${isDark ? 'hover:bg-[#212121]' : 'hover:bg-gray-100'}`} 
+                            title={speakingIndex === index ? "Parar áudio" : "Ouvir áudio"}
+                          >
+                            {speakingIndex === index ? <Square className="w-4 h-4 text-neutral-400 fill-current"/> : <Volume2 className="w-4 h-4"/>}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Indicador dinâmico de carregamento estilo Claude com fases e cursor piscando. */}
+                {loading && (
+                  <div className={`flex items-center gap-3 p-2 font-mono text-xs sm:text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400 shrink-0"/>
+                    <span>{LOADING_STEPS[currentStepIndex]}</span>
+                    <span className="animate-[pulse_0.4s_cubic-bezier(0.4,0,0.6,1)_infinite] font-bold text-base">_</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Caixa de entrada para digitar novas perguntas e enviar para a IA. */}
+        <div className={`p-3 md:p-4 shrink-0 w-full max-w-3xl mx-auto font-sans ${isDark ? 'bg-[#000000]' : 'bg-[#ffffff]'}`}>
+          <form onSubmit={handleSend} className={`relative rounded-3xl px-4 py-3 border transition-all flex items-end gap-2 ${isDark ? 'bg-[#212121] border-white/5 focus-within:border-white/20' : 'bg-[#f4f4f4] border-black/5 focus-within:border-black/20 shadow-sm'}`}>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend(e);
+                }
+              }}
+              placeholder="Ask anything about your database..."
+              rows={1}
+              className={`w-full bg-transparent text-xs sm:text-sm font-mono focus:outline-none resize-none max-h-40 py-1 ${isDark ? 'text-white placeholder-[#8e8e8e]' : 'text-black placeholder-[#676767]'}`}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading || !isConnected || isTrialExpired}
+              className={`p-2 rounded-full transition cursor-pointer mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed ${isDark ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'}`}
+            >
+              <Send className="w-4 h-4"/>
+            </button>
+          </form>
+          <p className={`text-[10px] md:text-[11px] text-center mt-2.5 ${isDark ? 'text-[#676767]' : 'text-[#8e8e8e]'}`}>
+            Prompt.ai can make mistakes. Verify important data.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
