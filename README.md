@@ -110,17 +110,3 @@ Deploy!
 📄 License
 This repository is proprietary software available for asset acquisition.
 
-
----
-
-### Como aplicar no seu projeto:
-
-1. Abra o arquivo `README.md` no VS Code.
-2. Cole o código acima.
-3. Substitua `YOUR-USERNAME` pelo seu nome de usuário do GitHub.
-4. Salve o arquivo, faça o commit e suba para o GitHub:
-
-```bash
-git add README.md
-git commit -m "Docs: update README with comprehensive setup guide"
-git push origin main
